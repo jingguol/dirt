@@ -3,7 +3,7 @@
 Dirt is a simple ray tracer written in C++ and originally was used for the Rendering Algorithms course taught at Dartmouth College. It provides basic functionalities that are required to complete the assignments for Physics-Based Rendering (CS 15-468) taught at Carnegie Mellon.
 
 ### Scene Files
-The scene files used in assignments must be downloaded separately. Go to the [v0 release](https://github.com/cmu-15-468/dirt-s22/releases/tag/v0) and download the `scenes.tar.gz` bundle. You can unzip this bundle using `tar -xf scenes.tar.gz` on the command line. Place the unzipped folder inside of your repo (it should be on the same level as your src and include directories). Note that you can ignore all of the other bundles on the release page.
+The scene files used in assignments must be downloaded separately. Go to the [v0 release](https://github.com/cmu-15-468/dirt-s23/releases/tag/v0) and download the `scenes.tar.gz` bundle. You can unzip this bundle using `tar -xf scenes.tar.gz` on the command line. Place the unzipped folder inside of your repo (it should be on the same level as your src and include directories). Note that you can ignore all of the other bundles on the release page.
 
 ### High Level Overview
 ***********************
