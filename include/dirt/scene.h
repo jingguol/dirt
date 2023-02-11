@@ -96,6 +96,7 @@ private:
     shared_ptr<SurfaceGroup> m_surfaces;
     SurfaceGroup m_emitters {*this};
     Color3f m_background = Color3f(0.2f);
+    shared_ptr<Sampler> m_sampler;
 
     int m_imageSamples = 1;                      ///< samples per pixels in each direction
 };

@@ -19,6 +19,14 @@
 #include <dirt/sphere.h>
 #include <dirt/scene.h>
 
+Vec2f getSphereUV(const Vec3f& p)
+{
+    float phi = atan2(p.y, p.x);
+    float theta = asin(p.z);
+    float u = (phi + M_PI) / (2 * M_PI);
+    float v = (theta + M_PI / 2) / M_PI;
+    return Vec2f(u, v);
+}
 
 Sphere::Sphere(float radius,
                shared_ptr<const Material> material,
@@ -40,36 +48,45 @@ Box3f Sphere::localBBox() const
     return Box3f(Vec3f(-m_radius), Vec3f(m_radius));
 }
 
-
-
 bool Sphere::intersect(const Ray3f &ray, HitInfo &hit) const
 {
     INCREMENT_INTERSECTION_TESTS;
-    // TODO: Assignment 1: Implement ray-sphere intersection
+    // compute ray intersection (and ray parameter), continue if not hit
+    // just grab only the first hit
+    auto tray = m_xform.inverse().ray(ray);
+    auto a = length2(tray.d);
+    auto b = 2*dot(tray.d, tray.o);
+    auto c = length2(tray.o) - m_radius*m_radius;
 
-    putYourCodeHere("Assignment 1: Insert your ray-sphere intersection code here");
-    return false;
+    // solve the quadratic equation using double precision
+    double discrim = (double)b*(double)b - 4*(double)a*(double)c;
+    if (discrim < 0)
+        return false;
 
-    // TODO: If the ray misses the sphere, you should return false
-    // TODO: If you successfully hit something, you should compute the hit point, 
-    //       hit distance, and normal and fill in these values
-    float hitT = 0.0f;
-    Vec3f hitPoint;
-    Vec3f geometricNormal;
+    double rootDiscrim = std::sqrt(discrim);
 
-    // For this assignment you can leave these values as is
-    Vec3f shadingNormal = geometricNormal;
-    Vec2f uvCoordinates = Vec2f(0.0f, 0.0f);
+    double q = (b < 0) ? -.5 * (b - rootDiscrim) : -.5 * (b + rootDiscrim);
 
-    // You should only assign hit and return true if you successfully hit something
-    hit = HitInfo(hitT,
-            hitPoint,
-            geometricNormal,
-            shadingNormal,
-            uvCoordinates,
-            m_material.get(),
-            this);
+    float t1 = float(q / a);
+    float t2 = float(c / q);
+    if (t1 > t2)
+        std::swap(t1, t2);
+
+    // compute t
+    float t = (t1 < tray.mint) ? t2 : t1;
+
+    // check if computed param is within ray.mint and ray.maxt
+    if (t < tray.mint || t > tray.maxt)
+        return false;
+
+    auto p = tray(t);
+    p *= m_radius / length(p);
+
+    Vec3f gn = normalize(m_xform.normal(p));
+    Vec2f uv = getSphereUV(p/m_radius);
+
+    // if hit, set intersection record values
+    hit = HitInfo(t, m_xform.point(p), gn, gn, uv, m_material.get(), this);
 
     return true;
-
 }

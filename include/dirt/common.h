@@ -339,3 +339,30 @@ inline float randf()
 	static pcg32 globalRNG = pcg32();
 	return globalRNG.nextFloat();
 }
+
+inline int randi(int mini, int maxi)
+{
+    return int(randf() * (maxi - mini + 1) + mini);
+}
+
+inline int roundToPerfectSquare(int n)
+{
+    int sqrtN = round(sqrt(n));
+    if (sqrtN * sqrtN == n)
+        return n;
+    int m = 1;
+    while (std::pow(2, m) < n) m++;
+    return m;
+}
+
+template<typename T>
+inline void shuffle(std::vector<T> s)
+{
+  for (size_t i = 0; i < (s.size() - 1); i++)
+  {
+    int other = randi(i, (s.size() - 1));
+    T temp = s[i];
+    s[i] = s[other];
+    s[other] = temp;
+  }
+}

@@ -58,10 +58,11 @@ bool Quad::intersect(const Ray3f &ray, HitInfo &hit) const
 	p.z = 0;
 
     Vec3f gn = normalize(m_xform.normal({0,0,1}));
+
+    Vec2f uv = Vec2f(p.x / (2 * m_size.x) + 0.5f, p.y / (2 * m_size.y) + 0.5f);
+
     // if hit, set intersection record values
-    hit = HitInfo(t, m_xform.point(p), gn, gn,
-                         Vec2f(0.0f, 0.0f), /* TODO: Compute proper UV coordinates */
-                         m_material.get(), this);
+    hit = HitInfo(t, m_xform.point(p), gn, gn, uv, m_material.get(), this);
     return true;
 }
 

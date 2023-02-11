@@ -50,6 +50,18 @@ void parseSurface(const Scene & scene, SurfaceBase * parent, const json & j);
  */
 shared_ptr<Material> parseMaterial(const json & j);
 
+/**
+   Return a newly constructed Texture by parsing the json object \ref j.
+   
+   \param  j            The json object to parse
+   \return Texture*     The resulting Texture
+ */
+shared_ptr<Texture> parseTexture(const json & j);
+
+/**
+    Return a newly constructed Sampler by parsing the json object \ref j.
+*/
+shared_ptr<Sampler> parseSampler(const json &j);
 
 /// parse a Mat44<T> from json
 template <typename T>

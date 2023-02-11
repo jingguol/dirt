@@ -32,6 +32,7 @@ struct Mesh;
 struct PDF;
 class Progress;
 class Quad;
+class Sampler;
 class Scene;
 class Sphere;
 class SurfaceBase;

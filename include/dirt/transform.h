@@ -73,7 +73,7 @@ struct Transform
         //      m(row, col),
         // or
         //      m[col][row].
-        return Vec3f(0.0f, 0.0f, 0.0f);
+        return (m*Vec4f(v, 0.0f)).xyz;
     }
 
     /// Apply the homogeneous transformation to a 3D normal
@@ -85,7 +85,7 @@ struct Transform
         // The inverse transformation matrix has already been computed for you:
         // mInv. Similar to vectors, you should not apply translation - only use
         // the top left 3x3 entries of the matrix.
-        return Vec3f(0.0f, 0.0f, 0.0f);
+        return normalize((transpose(mInv)*Vec4f(n, 0.0f)).xyz);
     }
 
     /// Transform a point by an arbitrary matrix in homogeneous coordinates
@@ -98,8 +98,8 @@ struct Transform
         // The result of the transform is another 4-vector, (x, y, z, w).
         // You should return the first 3 elements of this vector, divided by the
         // 4th coordinate
-        putYourCodeHere("Assignment 1: insert your Transform*Point3f code here");
-        return Vec3f(0.0f, 0.0f, 0.0f);
+        Vec4f tform = m*Vec4f(p, 1.0f);
+        return tform.xyz/tform.w; 
     }
 
     /// Apply the homogeneous transformation to a ray
@@ -112,8 +112,7 @@ struct Transform
         //
         // IMPORTANT: The ray you return should have the same mint
         // and maxt as the original ray
-        putYourCodeHere("Assignment 1: insert your Transform*Ray3f code here");
-        return Ray3f();
+        return Ray3f(point(r.o), vector(r.d), r.mint, r.maxt);
     }
 
     /// Transform the axis-aligned Box and return the bounding box of the result

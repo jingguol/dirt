@@ -22,6 +22,8 @@
 #include <dirt/sphere.h>
 #include <dirt/quad.h>
 #include <dirt/scene.h>
+#include <dirt/sampler.h>
+#include <dirt/texture.h>
 #include <iostream>
 #include <filesystem/resolver.h>
 
@@ -70,7 +72,6 @@ shared_ptr<SurfaceGroup> parseAccelerator(const Scene & scene, const json & j)
         throw DirtException("Unknown 'accelerator' type '%s' here:\n%s.", type, j.dump(4));
 }
 
-
 shared_ptr<Material> parseMaterial(const json & j)
 {
     string type = getKey("type", "material", j);
@@ -83,10 +84,52 @@ shared_ptr<Material> parseMaterial(const json & j)
         return make_shared<Dielectric>(j);
     else if (type == "diffuse light")
         return make_shared<DiffuseLight>(j);
+    else if (type == "blend")
+        return make_shared<BlendMaterial>(j);
 	else
 		throw DirtException("Unknown 'material' type '%s' here:\n%s.", type, j.dump(4));
 }
 
+shared_ptr<Texture> parseTexture(const json & j)
+{
+    if (j.is_object())
+    {
+	    // create a new texture
+        string type = getKey("type", "texture", j);
+
+        if (type == "constant")
+            return make_shared<ConstantTexture>(j);
+        else if (type == "checker")
+            return make_shared<CheckerTexture>(j);
+        else if (type == "marble")
+            return make_shared<MarbleTexture>(j);
+        if (type == "image")
+            return make_shared<ImageTexture>(j);
+        else
+            throw DirtException("Unknown texture type '%s' here:\n%s", type.c_str(), j.dump(4));
+    }
+    else if (j.is_array() || j.is_number())
+        return make_shared<ConstantTexture>(j);
+    else
+        return Texture::defaultTexture();
+}
+
+shared_ptr<Sampler> parseSampler(const json &j)
+{
+    if (j.is_object())
+    {
+        string type = getKey("type", "sampler", j);
+        if (type == "independent")
+            return make_shared<IndependentSampler>(j);
+        else if (type == "stratified")
+            return make_shared<StratifiedSampler>(j);
+        else if (type == "halton")
+            return make_shared<HaltonSampler>(j);
+        else
+            throw DirtException("Unknown sampler type '%s' here:\n%s", type.c_str(), j.dump(4));
+    }
+    return Sampler::defaultSampler();
+}
 
 void parseSurface(const Scene & scene, SurfaceBase * parent, const json & j)
 {
@@ -129,10 +172,19 @@ void Scene::parseFromJSON(const json & j)
         // default to a naive accelerator
         m_surfaces = make_shared<SurfaceGroup>(*this, j["accelerator"]);
 
+    if (j.contains("sampler"))
+        m_sampler = parseSampler(j["sampler"]);
+    else
+        m_sampler = std::make_shared<IndependentSampler>(json::object());
+
     // now loop through all keys in the json file and take the appropriate action
     for (auto it = j.begin(); it != j.end(); ++it)
     {
         if (it.key() == "accelerator")
+        {
+            // already handled above
+        }
+        else if (it.key() == "sampler")
         {
             // already handled above
         }

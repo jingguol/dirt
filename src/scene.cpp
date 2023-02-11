@@ -74,11 +74,6 @@ shared_ptr<const Material> Scene::findOrCreateMaterial(const json & jp, const st
 // compute the color corresponding to a ray by raytracing
 Color3f Scene::recursiveColor(const Ray3f &ray, int depth) const
 {
-    putYourCodeHere("Assignment 1: Insert your recursiveColor() code here");
-    return Color3f(0.0f, 0.0f, 0.0f);
-
-    // TODO: Recursively raytrace the scene, similar to the code you wrote in 01_dirt_tutorial
-    //       Different to before, you should also take into account surfaces that are self-emitting
     // Pseudo-code:
     //
 	// if scene.intersect:
@@ -90,6 +85,26 @@ Color3f Scene::recursiveColor(const Ray3f &ray, int depth) const
 	//			return emitted color;
 	// else:
 	// 		return background color (hint: look at m_background)
+    const int maxDepth = 64;
+    HitInfo hit;
+    if (intersect(ray, hit))
+    {
+        Ray3f scattered;
+        Color3f attenuation;
+        Color3f emitted = hit.mat->emitted(ray, hit);
+        if (depth < maxDepth && hit.mat->scatter(ray, hit, attenuation, scattered))
+        {
+            return emitted + attenuation * recursiveColor(scattered, depth + 1);
+        }
+        else
+        {
+            return emitted;
+        }
+    }
+    else
+    {
+        return m_background;
+    }
 }
 
 // raytrace an image
@@ -97,10 +112,6 @@ Image3f Scene::raytrace() const
 {
     // allocate an image of the proper size
     auto image = Image3f(m_camera->resolution().x, m_camera->resolution().y);
-
-    putYourCodeHere("Assignment 1: insert your raytrace() code here");
-
-    // TODO: Render the image, similar to the tutorial
     // Pseudo-code:
     //
         // foreach image row (go over image height)
@@ -116,6 +127,29 @@ Image3f Scene::raytrace() const
     // Hint: you can create a Progress object (progress.h) to provide a 
     // progress bar during rendering.
 
+    Progress progress("Rendering", m_camera->resolution().x*m_camera->resolution().y);
+
+    // foreach pixel
+    for (auto j : range(m_camera->resolution().y))
+    {
+        for (auto i : range(m_camera->resolution().x))
+        {
+            // init accumulated color
+            image(i, j) = Color3f(0.f);
+
+            // foreach sample
+            for (int s = 0; s < m_imageSamples; ++s)
+            {
+                // set pixel to the color raytraced with the ray
+                INCREMENT_TRACED_RAYS;
+                image(i, j) += recursiveColor(m_camera->generateRay(i + randf(), j + randf()), 0);
+            }
+            // scale by the number of samples
+            image(i, j) /= float(m_imageSamples);
+
+            ++progress;
+        }
+    }
 
 	// return the ray-traced image
     return image;
