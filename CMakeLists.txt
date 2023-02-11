@@ -27,13 +27,17 @@ set(dirt_headers
     include/dirt/mesh.h
     include/dirt/obj.h
     include/dirt/parser.h
+    include/dirt/perlin.h
+    include/dirt/primetable.h
     include/dirt/progress.h
     include/dirt/quad.h
     include/dirt/ray.h
+    include/dirt/sampler.h
     include/dirt/scene.h
     include/dirt/sphere.h
     include/dirt/surface.h
     include/dirt/surfacegroup.h
+    include/dirt/texture.h
     include/dirt/timer.h
     include/dirt/transform.h
     include/dirt/vec.h
@@ -48,13 +52,16 @@ set(dirt_srcs
     src/mesh.cpp
     src/obj.cpp
     src/parser.cpp
+    src/perlin.cpp
     src/progress.cpp
     src/quad.cpp
+    src/sampler.cpp
     src/scene.cpp
     src/sphere.cpp
     src/surface.cpp
     src/surfacegroup.cpp
     src/testscenes.cpp
+    src/texture.cpp
 )
 
 # Compile core dirt library
@@ -63,15 +70,13 @@ add_library(dirt_lib STATIC
     ${dirt_srcs}
 )
 
-add_executable(00_dirt_tutorial src/00_dirt_tutorial.cpp)
-add_executable(01_dirt_tutorial src/01_dirt_tutorial.cpp)
 add_executable(dirt src/01_dirt.cpp)
-add_executable(02_test_tri_intersection src/02_test_tri_intersection.cpp)
+add_executable(03_sample_test src/03_sample_test.cpp)
+add_executable(03_point_gen src/03_point_gen.cpp)
 
-target_link_libraries(00_dirt_tutorial dirt_lib)
-target_link_libraries(01_dirt_tutorial dirt_lib)
 target_link_libraries(dirt dirt_lib)
-target_link_libraries(02_test_tri_intersection dirt_lib)
+target_link_libraries(03_sample_test dirt_lib)
+target_link_libraries(03_point_gen dirt_lib)
 
 SOURCE_GROUP("ext\\tinyformat" FILES ${ext_tinyformat_srcs})
 SOURCE_GROUP("ext\\json" FILES ${ext_json_srcs})
