@@ -79,8 +79,7 @@ public:
 
 	bool scatter(const Ray3f &ray, const HitInfo &hit, Color3f &attenuation, Ray3f &scattered) const override;
 
-
-	Color3f albedo = Color3f(0.8f);     ///< The diffuse color (fraction of light that is reflected per color channel).
+	shared_ptr<const Texture> albedo; ///< The diffuse color (fraction of light that is reflected per color channel).
 };
 
 
@@ -92,9 +91,8 @@ public:
 
 	bool scatter(const Ray3f &ray, const HitInfo &hit, Color3f &attenuation, Ray3f &scattered) const override;
 
-
-	Color3f albedo = Color3f(0.8f);     ///< The reflective color (fraction of light that is reflected per color channel).
-	float roughness = 0.f;              ///< A value between 0 and 1 indicating how smooth vs. rough the reflection should be.
+	shared_ptr<const Texture> albedo;   ///< The reflective color (fraction of light that is reflected per color channel).
+	shared_ptr<const Texture> roughness;///< A value between 0 and 1 indicating how smooth vs. rough the reflection should be.
 };
 
 
@@ -125,3 +123,13 @@ public:
 	Color3f emit;	///< The emissive color of the light
 };
 
+class BlendMaterial : public Material
+{
+public:
+	BlendMaterial(const json & j = json::object());
+
+	bool scatter(const Ray3f &ray, const HitInfo &hit, Color3f &attenuation, Ray3f &scattered) const override;
+
+	shared_ptr<const Material> a, b;
+	shared_ptr<const Texture> amount;
+};

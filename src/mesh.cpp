@@ -26,50 +26,71 @@
 bool singleTriangleIntersect(const Ray3f& ray,
 	                         const Vec3f& p0, const Vec3f& p1, const Vec3f& p2,
 	                         const Vec3f* n0, const Vec3f* n1, const Vec3f* n2,
+                             const Vec2f* t0, const Vec2f* t1, const Vec2f* t2,
 	                         HitInfo& hit,
 	                         const Material * material,
 	                         const SurfaceBase * surface)
 {
-    // TODO: Implement ray-triangle intersection
-    // TODO: If the ray misses the triangle, you should return false
-    //       You can pick any ray triangle intersection routine you like.
-    //       I recommend you follow the Moller-Trumbore algorithm
+   // Find vectors for two edges sharing v[0]
+    Vec3f edge1 = p1 - p0,
+          edge2 = p2 - p0;
 
-    putYourCodeHere("Insert your ray-triangle intersection code here");
-    return false;
+    // Begin calculating determinant - also used to calculate U parameter
+    Vec3f pvec = cross(ray.d, edge2);
 
-    // First, check for intersection and fill in the hitT
-    float hitT = 0.0f;
-    // You should also compute the u/v (i.e. the alpha/beta barycentric coordinates) of the hit point
-    // (Moller-Trumbore gives you this for free)
-    float u, v;
+    // If determinant is near zero, ray lies in plane of triangle
+    float det = dot(edge1, pvec);
 
-    // TODO: If you successfully hit the triangle, you should check if the hitT lies
-    //       within the ray's tmin/tfar, and return false if it does not
+    if (det > -1e-8f && det < 1e-8f)
+        return false;
+    float inv_det = 1.0f / det;
 
-    // TODO: Fill in the geometric normal with the geometric normal of the triangle (i.e. normalized cross product of the sides)
-    Vec3f gn = Vec3f(0.0f);
+    // Calculate distance from v[0] to ray origin
+    Vec3f tvec = ray.o - p0;
 
-    // Compute the shading normal
+    // Calculate U parameter and test bounds
+    float u = dot(tvec,pvec) * inv_det;
+    if (u < 0.0 || u > 1.0)
+        return false;
+
+    // Prepare to test V parameter
+    Vec3f qvec = cross(tvec, edge1);
+
+    // Calculate V parameter and test bounds
+    float v = dot(ray.d,qvec) * inv_det;
+    if (v < 0.0 || u + v > 1.0)
+        return false;
+
+    // Ray intersects triangle -> compute t
+    float t = dot(edge2, qvec) * inv_det;
+
+    if (!(t >= ray.mint && t <= ray.maxt))
+        return false;
+
+    Vec3f gn = normalize(cross(p1 - p0, p2 - p0));
+
+    Vec3f bary(1 - (u + v), u, v);
+
     Vec3f sn;
-    if (n0 != nullptr && n1 != nullptr && n2 != nullptr) { // Do we have per-vertex normals available?
-        // We do -> dereference the pointers
-        Vec3f normal0 = *n0;
-        Vec3f normal1 = *n1;
-        Vec3f normal2 = *n2;
-
-        // TODO: You should compute the shading normal by
-        //       doing barycentric interpolation of the per-vertex normals (normal0/1/2)
-        //       Make sure to normalize the result
-        sn = Vec3f(0.0f);
-    } else {
-        // We don't have per-vertex normals - just use the geometric normal
+    if (n0 && n1 && n2)
+        sn = normalize(bary.x * (*n0) +
+                       bary.y * (*n1) +
+                       bary.z * (*n2));
+    else
         sn = gn;
-    }
 
-    // Because we've hit the triangle, fill in the intersection data
-    hit = HitInfo(hitT, ray(hitT), gn, sn, Vec2f(u, v), material, surface);
-    return true;
+    Vec2f uv;
+    if (t0 && t1 && t2)
+        uv = bary.x * (*t0) + bary.y * (*t1) + bary.z * (*t2);
+    else
+        uv = {u, v};
+
+    // Compute the intersection positon accurately using barycentric coordinates
+    Vec3f p = bary.x * p0 + bary.y * p1 + bary.z * p2;
+
+    // if hit, set intersection record values
+    hit = HitInfo(t, p, gn, sn, uv, material, surface);
+    return true; 
 }
 
 Triangle::Triangle(const Scene & scene, const json & j, shared_ptr<const Mesh> mesh, uint32_t triNumber)
@@ -106,6 +127,7 @@ bool Triangle::intersect(const Ray3f &ray, HitInfo &hit) const
     return singleTriangleIntersect(ray,
                                    p0, p1, p2,
                                    n0, n1, n2,
+                                   t0, t1, t2,
                                    hit, m_mesh->material.get(), this);
 }
 

@@ -52,8 +52,9 @@ public:
         // the "vfov" parameter is specified in degrees, but C++ math functions
         // expect it in radians. You can use deg2rad() from common.h to convert
         // from one to the other
-        putYourCodeHere("Assignment 1: Compute the image plane size.");
-        m_size = Vec2f(2.f, 1.f);
+        vfov = deg2rad(j.value("vfov", vfov));	
+	    m_size.y = 2*tan(vfov/2) * m_focalDistance;
+	    m_size.x = float(m_resolution.x)/m_resolution.y * m_size.y;
     }
 
 	/// Return the camera's image resolution
@@ -72,9 +73,19 @@ public:
      */
     Ray3f generateRay(float u, float v) const
     {
-        // TODO: Assignment 1: Implement camera ray generation
-        putYourCodeHere("Assignment 1: Insert your camera ray generation code here");
-        return Ray3f(Vec3f::Zero(), Vec3f::UnitX());
+        u /= m_resolution.x;
+		v /= m_resolution.y;
+
+		Vec2f disk = m_apertureRadius*randomInUnitDisk();
+		Vec3f origin(disk.x, disk.y, 0.f);
+        return m_xform.ray(
+            Ray3f(origin,
+        	Vec3f(
+                (u - 0.5f) * m_size.x,
+        	    (0.5f - v) * m_size.y,
+        	    -m_focalDistance) - origin
+            )
+        );
     }
 
 private:
