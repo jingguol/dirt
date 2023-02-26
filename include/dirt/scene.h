@@ -18,13 +18,15 @@
 
 #pragma once
 
+#include <dirt/background.h>
 #include <dirt/parser.h>
 #include <dirt/common.h>
 #include <dirt/image.h>
 #include <dirt/camera.h>
 #include <dirt/material.h>
 #include <dirt/surfacegroup.h>
-
+#include <dirt/texture.h>
+#include <dirt/integrator.h>
 
 /**
     Main scene data structure.
@@ -84,11 +86,13 @@ public:
         \param ray  The ray in question
         \return     An estimate of the color from this direction
      */
-    Color3f recursiveColor(const Ray3f &ray, int depth) const;
+    Color3f recursiveColor(Sampler &sampler, const Ray3f &ray, int depth) const;
 
     /// Generate the entire image by ray tracing.
     Image3f raytrace() const;
 
+    /// Generate the entire image by ray tracing.
+    Image3f integrateImage() const;
 
 private:
     shared_ptr<Camera> m_camera;
@@ -96,6 +100,7 @@ private:
     shared_ptr<SurfaceGroup> m_surfaces;
     SurfaceGroup m_emitters {*this};
     Color3f m_background = Color3f(0.2f);
+    shared_ptr<Integrator> m_integrator;
     shared_ptr<Sampler> m_sampler;
 
     int m_imageSamples = 1;                      ///< samples per pixels in each direction

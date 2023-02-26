@@ -15,18 +15,25 @@ include_directories(${PROJECT_SOURCE_DIR}/src
 )
 
 set(dirt_headers
+    include/dirt/ao.h
     include/dirt/argparse.h
     include/dirt/array2d.h
+    include/dirt/background.h
     include/dirt/bbh.h
     include/dirt/box.h
     include/dirt/camera.h
     include/dirt/common.h
     include/dirt/fwd.h
     include/dirt/image.h
+    include/dirt/integrator.h
     include/dirt/material.h
     include/dirt/mesh.h
+    include/dirt/normals.h
     include/dirt/obj.h
+    include/dirt/onb.h
     include/dirt/parser.h
+    include/dirt/path_tracer_simple.h
+    include/dirt/path_tracer_mats.h
     include/dirt/perlin.h
     include/dirt/primetable.h
     include/dirt/progress.h
@@ -45,9 +52,12 @@ set(dirt_headers
 
 set(dirt_srcs
     src/argparse.cpp
+    src/background.cpp
     src/bbh.cpp
+    src/background.cpp
     src/common.cpp
     src/image.cpp
+    src/integrator.cpp
     src/material.cpp
     src/mesh.cpp
     src/obj.cpp
@@ -73,10 +83,12 @@ add_library(dirt_lib STATIC
 add_executable(dirt src/01_dirt.cpp)
 add_executable(03_sample_test src/03_sample_test.cpp)
 add_executable(03_point_gen src/03_point_gen.cpp)
+add_executable(04_sample_tester src/04_sample_tester.cpp)
 
 target_link_libraries(dirt dirt_lib)
 target_link_libraries(03_sample_test dirt_lib)
 target_link_libraries(03_point_gen dirt_lib)
+target_link_libraries(04_sample_tester dirt_lib)
 
 SOURCE_GROUP("ext\\tinyformat" FILES ${ext_tinyformat_srcs})
 SOURCE_GROUP("ext\\json" FILES ${ext_json_srcs})

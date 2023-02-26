@@ -76,7 +76,7 @@ using std::flush;
 #define INV_FOURPI   0.07957747154594766788f
 #define SQRT_TWO     1.41421356237309504880f
 #define INV_SQRT_TWO 0.70710678118654752440f
-
+#define ONE_MINUS_EPSILON 0.99999994f
 
 // math utilities --------------------------
 // max
@@ -356,7 +356,7 @@ inline int roundToPerfectSquare(int n)
 }
 
 template<typename T>
-inline void shuffle(std::vector<T> s)
+inline void shuffle(std::vector<T> &s)
 {
   for (size_t i = 0; i < (s.size() - 1); i++)
   {

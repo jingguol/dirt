@@ -90,7 +90,7 @@ public:
   HaltonSampler(const json &j);
 
 private:
-
+ 
   static float scrambledRadicalInverse(const std::vector<uint64_t> &perm, uint64_t a, uint64_t base);
 
   float next1D() override;
