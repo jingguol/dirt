@@ -22,6 +22,12 @@
 #include <dirt/parser.h>
 #include <stdlib.h>
 
+struct ScatterRecord
+{
+  Color3f attenuation;
+  Vec3f scattered;
+  bool isSpecular = false;
+};
 
 /// A base class used to represent surface material properties.
 class Material
@@ -43,7 +49,7 @@ public:
 	   \param  scattered        the direction light should be scattered
 	   \return bool             True if the surface scatters light
 	 */
-	virtual bool scatter(const Ray3f &ray, const HitInfo &hit, Color3f &attenuation, Ray3f &scattered) const
+	virtual bool scatter(const Ray3f &ray, const HitInfo &hit, const Vec2f &sample, Color3f &attenuation, Ray3f &scattered) const
 	{
 		return false;
 	}
@@ -62,12 +68,61 @@ public:
 		return Color3f(0,0,0);
 	}
 
+  /**
+	 Sample a scattered direction at the surface hitpoint \c hit.
+		If it is not possible to evaluate the pdf of the material (e.g.\ it is
+		specular or unknown), then set srec.isSpecular to true, and populate
+		srec.scattered and srec.attenuation just like we did previously in the
+		\ref scatter() function. This allows you to fall back to the way we did
+		things with the \ref scatter() function, i.e.\ bypassing \ref pdf()
+		evaluations needed for explicit Monte Carlo integration in your \ref
+		Integrator, but this also precludes the use of MIS or mixture sampling
+		since the pdf is unknown.
+		\param  dirIn  The incoming ray direction
+		\param  hit    The incoming ray's intersection with the surface
+		\param  srec   Populate srec.scattered, srec.isSpecular, and
+						srec.attenuation
+		\return bool   True if the surface scatters light
+	*/
+	virtual bool sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &sample, ScatterRecord &srec) const 
+	{
+		return false;
+	}
+
+  /**
+	 Evaluate the material response for the given pair of directions.
+		For non-specular materials, this should be the BSDF multiplied by the
+		cosine foreshortening term.
+		Specular contributions should be excluded.
+		
+		\param  dirIn      The incoming ray direction
+		\param  scattered  The outgoing ray direction
+		\param  hit        The shading hit point
+		\return Color3f    The evaluated color
+	*/
+	virtual Color3f eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const 
+	{
+    	return Color3f(0.0f);
+	}
+
+  /**
+	   Compute the probability density that \ref sample() will generate \c scattered (given \c dirIn).
+	   
+	   \param  dirIn      The incoming ray direction
+	   \param  scattered  The outgoing ray direction
+	   \param  hit        The shading hit point
+	   \return float      A probability density value in solid angle measure around \c hit.p.
+	 */
+	virtual float pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const 
+	{
+    	return 0.0f;
+	}
 
 	/**
-        Return whether or not this Material is emissive.
-		This is primarily used to create a global list of emitters for sampling.
-     */
-    virtual bool isEmissive() const {return false;}
+      Return whether or not this Material is emissive.
+  This is primarily used to create a global list of emitters for sampling.
+    */
+  virtual bool isEmissive() const {return false;}
 };
 
 
@@ -77,7 +132,13 @@ class Lambertian : public Material
 public:
 	Lambertian(const json & j = json::object());
 
-	bool scatter(const Ray3f &ray, const HitInfo &hit, Color3f &attenuation, Ray3f &scattered) const override;
+	bool scatter(const Ray3f &ray, const HitInfo &hit, const Vec2f &sample, Color3f &attenuation, Ray3f &scattered) const override;
+
+  	bool sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &sample, ScatterRecord &srec) const override;
+
+	Color3f eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
+
+	float pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
 
 	shared_ptr<const Texture> albedo; ///< The diffuse color (fraction of light that is reflected per color channel).
 };
@@ -89,7 +150,11 @@ class Metal : public Material
 public:
 	Metal(const json & j = json::object());
 
-	bool scatter(const Ray3f &ray, const HitInfo &hit, Color3f &attenuation, Ray3f &scattered) const override;
+	bool scatter(const Ray3f &ray, const HitInfo &hit, const Vec2f &sample, Color3f &attenuation, Ray3f &scattered) const override;
+
+  	bool sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &sample, ScatterRecord &srec) const override;
+
+	Color3f eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override {return Color3f(0.f);}
 
 	shared_ptr<const Texture> albedo;   ///< The reflective color (fraction of light that is reflected per color channel).
 	shared_ptr<const Texture> roughness;///< A value between 0 and 1 indicating how smooth vs. rough the reflection should be.
@@ -102,8 +167,13 @@ class Dielectric : public Material
 public:
 	Dielectric(const json & j = json::object());
 
-	bool scatter(const Ray3f &ray, const HitInfo &hit, Color3f &attenuation, Ray3f &scattered) const override;
+	bool scatter(const Ray3f &ray, const HitInfo &hit, const Vec2f &sample, Color3f &attenuation, Ray3f &scattered) const override;
 
+  	bool sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &sample, ScatterRecord &srec) const override;
+
+	Color3f eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo &hit) const override;
+
+	float pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
 
 	float ior;      ///< The (relative) index of refraction of the material
 };
@@ -118,7 +188,7 @@ public:
 	/// Returns a constant Color3f if the ray hits the surface on the front side.
 	Color3f emitted(const Ray3f &ray, const HitInfo &hit) const override;
 
-    bool isEmissive() const override {return true;}
+  bool isEmissive() const override {return true;}
 
 	Color3f emit;	///< The emissive color of the light
 };
@@ -128,8 +198,88 @@ class BlendMaterial : public Material
 public:
 	BlendMaterial(const json & j = json::object());
 
-	bool scatter(const Ray3f &ray, const HitInfo &hit, Color3f &attenuation, Ray3f &scattered) const override;
+	bool scatter(const Ray3f &ray, const HitInfo &hit, const Vec2f &sample, Color3f &attenuation, Ray3f &scattered) const override;
+
+  	bool sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &sample, ScatterRecord &srec) const override;
+
+	Color3f eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
+
+	float pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
 
 	shared_ptr<const Material> a, b;
 	shared_ptr<const Texture> amount;
+};
+
+class Phong : public Material
+{
+public:
+	Phong(const json & j = json::object());
+
+	bool scatter(const Ray3f &ray, const HitInfo &hit, const Vec2f &sample, Color3f &attenuation, Ray3f &scattered) const override;
+
+	bool sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &sample, ScatterRecord &srec) const override;
+
+	Color3f eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
+
+	float pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
+
+	shared_ptr<const Texture> albedo;     ///< The reflective color (fraction of light that is reflected per color channel).
+	float exponent = 10.f;
+};
+
+class BlinnPhong : public Material
+{
+public:
+	BlinnPhong(const json & j = json::object());
+
+	bool scatter(const Ray3f &ray, const HitInfo &hit, const Vec2f &sample, Color3f &attenuation, Ray3f &scattered) const override;
+
+	bool sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &sample, ScatterRecord &srec) const override;
+
+	Color3f eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
+
+	float pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
+
+	shared_ptr<const Texture> albedo;     ///< The reflective color (fraction of light that is reflected per color channel).
+	float exponent = 10.f;
+};
+
+class Beckmann : public Material
+{
+public:
+	Beckmann(const json & j = json::object());
+
+	bool scatter(const Ray3f &ray, const HitInfo &hit, const Vec2f &sample, Color3f &attenuation, Ray3f &scattered) const override;
+
+	bool sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &sample, ScatterRecord &srec) const override;
+	
+	Color3f eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
+
+	float pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
+
+	float G1(const Vec3f v, const Vec3f m, const HitInfo & hit) const;
+
+	shared_ptr<const Texture> albedo;     ///< The reflective color (fraction of light that is reflected per color channel).
+	float ab = 0.5f;
+	float ior = 0.05f;
+	float ext = 3.9f;
+};
+
+class OrenNayar : public Material
+{
+public:
+	OrenNayar(const json & j = json::object());
+
+	bool scatter(const Ray3f &ray, const HitInfo &hit, const Vec2f &sample, Color3f &attenuation, Ray3f &scattered) const override;
+
+	bool sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &sample, ScatterRecord &srec) const override;
+
+	Color3f eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
+
+	float pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const override;
+
+	float G1(const Vec3f v, const Vec3f m, const HitInfo & hit) const;
+
+	shared_ptr<const Texture> albedo;     ///< The reflective color (fraction of light that is reflected per color channel).
+	float sigma = 0.35f;
 };

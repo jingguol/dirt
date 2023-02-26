@@ -16,16 +16,21 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <dirt/background.h>
 #include <dirt/parser.h>
 #include <dirt/obj.h>
 #include <dirt/bbh.h>
 #include <dirt/sphere.h>
 #include <dirt/quad.h>
 #include <dirt/scene.h>
-#include <dirt/sampler.h>
 #include <dirt/texture.h>
 #include <iostream>
 #include <filesystem/resolver.h>
+#include <dirt/integrator.h>
+#include <dirt/ao.h>
+#include <dirt/path_tracer_simple.h>
+#include <dirt/path_tracer_mats.h>
+#include <dirt/normals.h>
 
 void from_json(const json & j, Transform & v)
 {
@@ -72,6 +77,22 @@ shared_ptr<SurfaceGroup> parseAccelerator(const Scene & scene, const json & j)
         throw DirtException("Unknown 'accelerator' type '%s' here:\n%s.", type, j.dump(4));
 }
 
+shared_ptr<Integrator> parseIntegrator(const json & j)
+{
+    string type = getKey("type", "integrator", j);
+
+    if (type == "normals")
+        return make_shared<NormalIntegrator>(j);
+    else if (type == "path_tracer_simple")
+        return make_shared<PathTracerSimple>(j);
+    else if (type == "path_tracer_mats")
+        return make_shared<PathTracerMats>(j);
+    else if (type == "ao")
+        return make_shared<AmbientOcclusion>(j);
+    else
+        throw DirtException("Unknown 'integrator' type '%s' here:\n%s.", type, j.dump(4));
+}
+
 shared_ptr<Material> parseMaterial(const json & j)
 {
     string type = getKey("type", "material", j);
@@ -86,6 +107,14 @@ shared_ptr<Material> parseMaterial(const json & j)
         return make_shared<DiffuseLight>(j);
     else if (type == "blend")
         return make_shared<BlendMaterial>(j);
+    else if (type == "phong")
+		return make_shared<Phong>(j);
+	else if (type == "blinnphong")
+        return make_shared<BlinnPhong>(j);
+    else if (type == "beckmann")
+        return make_shared<Beckmann>(j);
+    else if (type == "oren-nayar")
+        return make_shared<OrenNayar>(j);
 	else
 		throw DirtException("Unknown 'material' type '%s' here:\n%s.", type, j.dump(4));
 }
@@ -112,6 +141,11 @@ shared_ptr<Texture> parseTexture(const json & j)
         return make_shared<ConstantTexture>(j);
     else
         return Texture::defaultTexture();
+}
+
+shared_ptr<Background> parseBackground(const json & j)
+{
+    // TODO
 }
 
 shared_ptr<Sampler> parseSampler(const json &j)
@@ -193,10 +227,16 @@ void Scene::parseFromJSON(const json & j)
             if (m_camera)
                 throw DirtException("There can only be one camera per scene!");
             m_camera = make_shared<Camera>(it.value());
-        }
+        } 
         else if (it.key() == "image_samples")
         {
             m_imageSamples = it.value();
+        }
+        else if (it.key() == "integrator")
+        {
+            if (m_integrator)
+                throw DirtException("There can only be one integrator per scene!");
+            m_integrator = parseIntegrator(it.value());
         }
         else if (it.key() == "background")
         {

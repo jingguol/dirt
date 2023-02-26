@@ -59,6 +59,14 @@ shared_ptr<Material> parseMaterial(const json & j);
 shared_ptr<Texture> parseTexture(const json & j);
 
 /**
+   Return a newly constructed Background by parsing the json object \ref j.
+   
+   \param  j            The json object to parse
+   \return Background*     The resulting Background
+ */
+shared_ptr<Background> parseBackground(const json & j);
+
+/**
     Return a newly constructed Sampler by parsing the json object \ref j.
 */
 shared_ptr<Sampler> parseSampler(const json &j);

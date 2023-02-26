@@ -18,6 +18,7 @@
 
 #include <dirt/scene.h>
 #include <dirt/progress.h>
+#include <dirt/sampler.h>
 #include <fstream>
 
 /// Construct a new scene from a json object
@@ -72,7 +73,7 @@ shared_ptr<const Material> Scene::findOrCreateMaterial(const json & jp, const st
 }
 
 // compute the color corresponding to a ray by raytracing
-Color3f Scene::recursiveColor(const Ray3f &ray, int depth) const
+Color3f Scene::recursiveColor(Sampler &sampler, const Ray3f &ray, int depth) const
 {
     // Pseudo-code:
     //
@@ -92,9 +93,10 @@ Color3f Scene::recursiveColor(const Ray3f &ray, int depth) const
         Ray3f scattered;
         Color3f attenuation;
         Color3f emitted = hit.mat->emitted(ray, hit);
-        if (depth < maxDepth && hit.mat->scatter(ray, hit, attenuation, scattered))
+        Vec2f sample = sampler.next2D();
+        if (depth < maxDepth && hit.mat->scatter(ray, hit, sample, attenuation, scattered))
         {
-            return emitted + attenuation * recursiveColor(scattered, depth + 1);
+            return emitted + attenuation * recursiveColor(sampler, scattered, depth + 1);
         }
         else
         {
@@ -112,6 +114,10 @@ Image3f Scene::raytrace() const
 {
     // allocate an image of the proper size
     auto image = Image3f(m_camera->resolution().x, m_camera->resolution().y);
+
+    if (m_integrator)
+        return integrateImage();
+
     // Pseudo-code:
     //
         // foreach image row (go over image height)
@@ -137,12 +143,16 @@ Image3f Scene::raytrace() const
             // init accumulated color
             image(i, j) = Color3f(0.f);
 
+            m_sampler->startPixel();
+
             // foreach sample
             for (int s = 0; s < m_imageSamples; ++s)
             {
                 // set pixel to the color raytraced with the ray
                 INCREMENT_TRACED_RAYS;
-                image(i, j) += recursiveColor(m_camera->generateRay(i + randf(), j + randf()), 0);
+                Vec2f sample = m_sampler->next2D();
+                image(i, j) += recursiveColor(*m_sampler, m_camera->generateRay(i + sample.x, j + sample.y), 0);
+                m_sampler->startNextPixelSample();
             }
             // scale by the number of samples
             image(i, j) /= float(m_imageSamples);
@@ -155,3 +165,38 @@ Image3f Scene::raytrace() const
     return image;
 }
 
+Image3f Scene::integrateImage() const
+{
+    // allocate an image of the proper size
+    auto image = Image3f(m_camera->resolution().x, m_camera->resolution().y);
+
+    Progress progress("Rendering", m_camera->resolution().x*m_camera->resolution().y);
+    // foreach pixel
+    for (auto j : range(m_camera->resolution().y))
+    {
+        for (auto i : range(m_camera->resolution().x))
+        {
+            // init accumulated color
+            image(i, j) = Color3f(0.f);
+            
+            m_sampler->startPixel();
+
+            // foreach sample
+            for (int s = 0; s < m_imageSamples; ++s)
+            {
+                // set pixel to the color raytraced with the ray
+                INCREMENT_TRACED_RAYS;
+                Vec2f sample = m_sampler->next2D();
+                image(i, j) += m_integrator->Li(*this, *m_sampler, m_camera->generateRay(i + sample.x, j + sample.y));
+                m_sampler->startNextPixelSample();
+            }
+            // scale by the number of samples
+            image(i, j) /= m_imageSamples;
+
+            ++progress;
+        }
+    }
+
+	// return the ray-traced image
+    return image;
+}
