@@ -21,6 +21,7 @@
 #pragma once
 
 #include <dirt/vec.h>
+#include <dirt/fwd.h>
 
 /// "Ray epsilon": relative error threshold for ray intersection computations
 #define Epsilon 0.001f
@@ -39,6 +40,7 @@ struct Ray
     Vec<N,T> d;     ///< The direction of the ray
     T mint;         ///< Minimum distance along the ray segment
     T maxt;         ///< Maximum distance along the ray segment
+    std::shared_ptr<const Medium> medium = nullptr;
 
     /// Construct a new ray
     Ray() : mint(Epsilon),
@@ -54,10 +56,27 @@ struct Ray
 
     /// Copy a ray, but change the covered segment of the copy
     Ray(const Ray &ray, T mint, T maxt)
-     : o(ray.o), d(ray.d), mint(mint), maxt(maxt) { }
+     : o(ray.o), d(ray.d), mint(mint), maxt(maxt), medium(ray.medium) { }
 
     /// Return the position of a point along the ray
     Vec<N,T> operator() (T t) const { return o + t * d; }
+    
+    Ray<N, T> normalizeRay() const
+    {
+        float rayLength = length(d);
+
+        Vec3f normalizedRayDir = d / rayLength;
+        float normalizedMint = mint * rayLength;
+        float normalizedMaxt = maxt * rayLength;
+
+        return Ray(o, normalizedRayDir, normalizedMint, normalizedMaxt);
+    }
+
+    Ray<N, T> withMedium(std::shared_ptr<const Medium> medium)
+    {
+        this->medium = medium;
+        return *this;
+    }
 };
 
 template <typename T> using Ray2 = Ray<2, T>;

@@ -16,7 +16,6 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <dirt/background.h>
 #include <dirt/parser.h>
 #include <dirt/obj.h>
 #include <dirt/bbh.h>
@@ -24,12 +23,18 @@
 #include <dirt/quad.h>
 #include <dirt/scene.h>
 #include <dirt/texture.h>
+#include <dirt/background.h>
 #include <iostream>
 #include <filesystem/resolver.h>
 #include <dirt/integrator.h>
 #include <dirt/ao.h>
 #include <dirt/path_tracer_simple.h>
 #include <dirt/path_tracer_mats.h>
+#include <dirt/path_tracer_mis.h>
+#include <dirt/path_tracer_mixture.h>
+#include <dirt/path_tracer_nee.h>
+#include <dirt/volpath_tracer_nee.h>
+#include <dirt/volpath_tracer_uni.h>
 #include <dirt/normals.h>
 
 void from_json(const json & j, Transform & v)
@@ -87,6 +92,16 @@ shared_ptr<Integrator> parseIntegrator(const json & j)
         return make_shared<PathTracerSimple>(j);
     else if (type == "path_tracer_mats")
         return make_shared<PathTracerMats>(j);
+    else if (type == "path_tracer_mixture")
+        return make_shared<PathTracerMixture>(j);
+    else if (type == "path_tracer_mis")
+        return make_shared<PathTracerMIS>(j);
+    else if (type == "path_tracer_nee")
+        return make_shared<PathTracerNEE>(j);
+    else if (type == "volpath_tracer_nee")
+        return make_shared<VolpathTracerNEE>(j);
+    else if (type == "volpath_tracer_uni")
+        return make_shared<VolpathTracerUni>(j);
     else if (type == "ao")
         return make_shared<AmbientOcclusion>(j);
     else
@@ -119,6 +134,26 @@ shared_ptr<Material> parseMaterial(const json & j)
 		throw DirtException("Unknown 'material' type '%s' here:\n%s.", type, j.dump(4));
 }
 
+shared_ptr<PhaseFunction> parsePhase(const json &j)
+{
+    string type = getKey("type", "phase", j);
+    if (type == "hg")
+        return make_shared<HenyeyGreenstein>(j);
+    else
+        throw DirtException("Unknown 'phase' type '%s' here:\n%s.", type, j.dump(4));
+}
+
+shared_ptr<Medium> parseMedium(const json &j)
+{
+    string type = getKey("type", "medium", j);
+    if (type == "homogeneous")
+        return make_shared<HomogeneousMedium>(j);
+    else if (type == "perlin")
+        return make_shared<PerlinMedium>(j);
+    else
+        throw DirtException("Unknown 'medium' type '%s' here:\n%s.", type, j.dump(4));
+}
+
 shared_ptr<Texture> parseTexture(const json & j)
 {
     if (j.is_object())
@@ -145,7 +180,21 @@ shared_ptr<Texture> parseTexture(const json & j)
 
 shared_ptr<Background> parseBackground(const json & j)
 {
-    // TODO
+    if (j.is_object()) {
+        // create a new background
+        string type = getKey("type", "background", j);
+
+        if (type == "constant")
+            return make_shared<ConstantBackground>(j);
+        else if (type == "image")
+            return make_shared<ImageBackground>(j);
+        else
+            throw DirtException("Unknown background type '%s' here:\n%s", type.c_str(), j.dump(4));
+    }
+    else if (j.is_array() || j.is_number())
+        return make_shared<ConstantBackground>(j);
+    else
+        return Background::defaultBackground();
 }
 
 shared_ptr<Sampler> parseSampler(const json &j)
@@ -185,7 +234,7 @@ void parseSurface(const Scene & scene, SurfaceBase * parent, const json & j)
             return;
 
         mesh->material = scene.findOrCreateMaterial(j);
-
+        mesh->medium_interface = scene.findOrCreateMediumInterface(j);
         for (auto index : range(mesh->F.size()))
             parent->addChild(make_shared<Triangle>(scene, j, mesh, int(index)));
     }
@@ -240,7 +289,9 @@ void Scene::parseFromJSON(const json & j)
         }
         else if (it.key() == "background")
         {
-            m_background = it.value();
+            if (m_background)
+                throw DirtException("There can only be one background per scene!");
+            m_background = parseBackground(it.value());
         }
         else if (it.key() == "materials")
         {
@@ -248,6 +299,14 @@ void Scene::parseFromJSON(const json & j)
             {
                 auto material = parseMaterial(m);
                 m_materials[getKey("name", "material", m)] = material;
+            }
+        }
+        else if (it.key() == "media")
+        {
+            for (auto & m : it.value())
+            {
+                auto medium = parseMedium(m);
+                m_media[getKey("name", "media", m)] = medium;
             }
         }
         else if (it.key() == "surfaces")

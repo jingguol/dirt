@@ -72,6 +72,44 @@ shared_ptr<const Material> Scene::findOrCreateMaterial(const json & jp, const st
         throw DirtException("Type mismatch: Expecting either a material or material name here:\n%s", jp.dump(4));
 }
 
+shared_ptr<const Medium> Scene::findOrCreateMedium(const json & jp, const string& key) const
+{
+    auto it = jp.find(key);
+    if (it == jp.end())
+        return nullptr;
+
+    auto j = it.value();
+    if (j.is_string())
+    {
+        string name = j.get<string>();
+        // find a pre-declared medium
+        auto i = m_media.find(name);
+        if (i != m_media.end())
+            return i->second;
+        else
+            throw DirtException("Can't find a medium with name '%s' here:\n%s", name, jp.dump(4));
+    }
+    else if (j.is_object())
+    {
+	    // create a new medium
+        return parseMedium(j);
+    }
+    else
+        throw DirtException("Type mismatch: Expecting either a medium or medium name here:\n%s", jp.dump(4));
+}
+
+shared_ptr<const MediumInterface> Scene::findOrCreateMediumInterface(const json & jp, const string& key) const
+{
+    auto it = jp.find(key);
+    if (it == jp.end())
+    {
+        return std::make_shared<MediumInterface>();
+    }
+    std::shared_ptr<const Medium> inside = findOrCreateMedium(jp.at(key), "inside");
+    std::shared_ptr<const Medium> outside = findOrCreateMedium(jp.at(key), "outside");
+    return std::make_shared<MediumInterface>(inside, outside);
+}
+
 // compute the color corresponding to a ray by raytracing
 Color3f Scene::recursiveColor(Sampler &sampler, const Ray3f &ray, int depth) const
 {
@@ -105,7 +143,7 @@ Color3f Scene::recursiveColor(Sampler &sampler, const Ray3f &ray, int depth) con
     }
     else
     {
-        return m_background;
+        return m_background->value(ray);
     }
 }
 

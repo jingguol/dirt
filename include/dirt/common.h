@@ -51,6 +51,17 @@
 #pragma GCC diagnostic pop
 #endif
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4706)
+#endif
+#include <json.hh>
+#if defined(_MSC_VER)
+#pragma warning(pop) 
+#endif
+
+using json = nlohmann::json;
+
 // bringing standard library objects in scope
 using std::string;
 using std::vector;

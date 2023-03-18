@@ -27,6 +27,7 @@ set(dirt_headers
     include/dirt/image.h
     include/dirt/integrator.h
     include/dirt/material.h
+    include/dirt/medium.h
     include/dirt/mesh.h
     include/dirt/normals.h
     include/dirt/obj.h
@@ -34,6 +35,11 @@ set(dirt_headers
     include/dirt/parser.h
     include/dirt/path_tracer_simple.h
     include/dirt/path_tracer_mats.h
+    include/dirt/path_tracer_mixture.h
+    include/dirt/path_tracer_nee.h
+    include/dirt/path_tracer_mis.h
+    include/dirt/volpath_tracer_nee.h
+    include/dirt/volpath_tracer_uni.h
     include/dirt/perlin.h
     include/dirt/primetable.h
     include/dirt/progress.h
@@ -54,11 +60,11 @@ set(dirt_srcs
     src/argparse.cpp
     src/background.cpp
     src/bbh.cpp
-    src/background.cpp
     src/common.cpp
     src/image.cpp
     src/integrator.cpp
     src/material.cpp
+    src/medium.cpp
     src/mesh.cpp
     src/obj.cpp
     src/parser.cpp
@@ -81,14 +87,17 @@ add_library(dirt_lib STATIC
 )
 
 add_executable(dirt src/01_dirt.cpp)
+
 add_executable(03_sample_test src/03_sample_test.cpp)
 add_executable(03_point_gen src/03_point_gen.cpp)
 add_executable(04_sample_tester src/04_sample_tester.cpp)
+add_executable(05_phase_tester src/05_phase_tester.cpp)
 
 target_link_libraries(dirt dirt_lib)
 target_link_libraries(03_sample_test dirt_lib)
 target_link_libraries(03_point_gen dirt_lib)
 target_link_libraries(04_sample_tester dirt_lib)
+target_link_libraries(05_phase_tester dirt_lib)
 
 SOURCE_GROUP("ext\\tinyformat" FILES ${ext_tinyformat_srcs})
 SOURCE_GROUP("ext\\json" FILES ${ext_json_srcs})

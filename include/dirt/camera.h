@@ -22,6 +22,7 @@
 #include <dirt/vec.h>
 #include <dirt/parser.h>
 #include <dirt/sampling.h>
+#include <dirt/medium.h>
 
 /**
     This class represents a virtual pinhole camera.
@@ -45,7 +46,11 @@ public:
 	    m_resolution = j.value("resolution", m_resolution);
 	    m_focalDistance = j.value("fdist", m_focalDistance);
 	    m_apertureRadius = j.value("aperture", m_apertureRadius);
-		
+        if (j.contains("medium"))
+        {
+            m_medium = parseMedium(j.at("medium"));
+        }
+
 		float vfov = 90.f; // Default vfov value. Override this with the value from json
         // TODO: Assignment 1: read the vertical field-of-view from j ("vfov"),
         // and compute the width and height of the image plane. Remember that
@@ -85,7 +90,7 @@ public:
         	    (0.5f - v) * m_size.y,
         	    -m_focalDistance) - origin
             )
-        );
+        ).withMedium(m_medium);
     }
 
 private:
@@ -113,4 +118,5 @@ private:
 	float m_focalDistance = 1.f;          ///< Distance to image plane along local z axis
 	Vec2i m_resolution = Vec2i(512,512);  ///< Image resolution
 	float m_apertureRadius = 0.f;         ///< The size of the aperture for depth of field
+    std::shared_ptr<const Medium> m_medium;
 };

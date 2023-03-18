@@ -63,6 +63,9 @@ public:
     */
     bool intersect(const Ray3f &ray, HitInfo &hit) const override;
 
+    float pdf(const Vec3f& o, const Vec3f& v) const override;
+    
+    Vec3f sample(const Vec3f& o, const Vec2f &sample) const override;
 
 protected:
 

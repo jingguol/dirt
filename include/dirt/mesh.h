@@ -47,6 +47,7 @@ public:
 
     Transform m_xform = Transform();        ///< Local-to-world Transformation
     shared_ptr<const Material> material;     ///< One material for all faces
+    shared_ptr<const MediumInterface> medium_interface;
 };
 
 
@@ -60,6 +61,10 @@ public:
 	bool intersect(const Ray3f &ray, HitInfo &hit) const override;
 
     bool isEmissive() const override {return m_mesh && m_mesh->material && m_mesh->material->isEmissive();}
+    
+    Vec3f sample(const Vec3f &o, const Vec2f &sample) const override;
+    
+    float pdf(const Vec3f &o, const Vec3f &v) const override;
 
 protected:
     // convenience function to access the i-th vertex (i must be 0, 1, or 2)
