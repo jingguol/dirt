@@ -34,7 +34,7 @@ public:
     {
         HitInfo hit;
         if (!scene.intersect(ray, hit))
-            return scene.background();
+            return scene.background(ray);
 
         ScatterRecord srec;
         Color3f emitted = includeEmission ? hit.mat->emitted(ray, hit) : Color3f(0.f);
@@ -83,4 +83,4 @@ public:
 private:
     int m_maxBounces = 64;
     bool m_recursive = true;
-}; 
+};

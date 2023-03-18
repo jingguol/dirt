@@ -30,7 +30,7 @@ public:
     {
         if (hit.mat == nullptr && hit.mi->IsMediumTransition())
             ray.medium = hit.mi->getMedium(ray, hit);
-        ray.maxt = length(hit.p - ray.o) / length(ray.d) + Epsilon; 
+        ray.maxt = length(hit.p - ray.o) / length(ray.d) + Epsilon;
     }
 
     virtual Color3f Li(const Scene & scene, Sampler &sampler, const Ray3f& ray_) const override
@@ -65,7 +65,7 @@ public:
             {
                 if (!foundIntersection)
                 {
-                    result += throughput * scene.background();
+                    result += throughput * scene.background(ray);
                     break;
                 }
 
@@ -75,14 +75,14 @@ public:
                     continue;
                 }
 
-                result += throughput * hit.mat->emitted(ray, hit); 
+                result += throughput * hit.mat->emitted(ray, hit);
 
                 // sample direction (from BSDF)
                 ScatterRecord srec;
                 if (!hit.mat->sample(ray.d, hit, sampler.next2D(), srec)) break;
 
                 Ray3f scat(hit.p, srec.scattered);
-                if (!srec.isSpecular) 
+                if (!srec.isSpecular)
                 {
                     float bsdfPdf = hit.mat->pdf(ray.d, scat.d, hit);
                     if (bsdfPdf == 0.0f) break;

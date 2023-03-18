@@ -25,7 +25,7 @@ public:
     {
         if (hit.mat == nullptr && hit.mi->IsMediumTransition())
             ray.medium = hit.mi->getMedium(ray, hit);
-        ray.maxt = length(hit.p - ray.o) / length(ray.d) + Epsilon; 
+        ray.maxt = length(hit.p - ray.o) / length(ray.d) + Epsilon;
     }
 
     Color3f surfaceNEE(const Scene &scene, Sampler &sampler, const HitInfo &hit, const Ray3f &ray, const Color3f &throughput) const
@@ -117,7 +117,7 @@ public:
             {
                 if (!foundIntersection)
                 {
-                    result += throughput * scene.background();
+                    result += throughput * scene.background(ray);
                     break;
                 }
 
@@ -147,7 +147,7 @@ public:
                 ray = scat;
                 bounces ++;
             }
-	
+
             float lum = luminance(throughput);
             const float rrThreshold = .1;
 	    // TODO: Part 1

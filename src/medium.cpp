@@ -117,7 +117,7 @@ Color3f TrL(const Scene &scene, Sampler &sampler, const Ray3f &ray_)
 
     // escaped scene (assume no infinite lights)
     if (!hitSurface)
-      return Tr * scene.background();
+      return Tr * scene.background(ray);
 
     // set medium based on whether we are entering or exiting the surface
     if (hit.mi->IsMediumTransition())

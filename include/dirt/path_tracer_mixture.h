@@ -31,7 +31,7 @@ public:
     {
         HitInfo hit;
         if (!scene.intersect(ray, hit))
-            return scene.background();
+            return scene.background(ray);
 
         ScatterRecord srec;
         Color3f emitted = hit.mat->emitted(ray, hit);
@@ -48,7 +48,7 @@ public:
         // if the sampled direction is specular, don't use Monte Carlo
         if (srec.isSpecular)
             return emitted + srec.attenuation * recursiveColor(scene, sampler, Ray3f(hit.p, srec.scattered), moreBounces-1);
-	
+
 	sample = sampler.next2D();
         Vec3f lightSample = scene.emitters().sample(hit.p, sample);
         bool sampMat = randf() > 0.5f;
@@ -80,7 +80,7 @@ public:
         {
             if (!scene.intersect(ray, hit))
             {
-                result += throughput * scene.background();
+                result += throughput * scene.background(ray);
                 break;
             }
 

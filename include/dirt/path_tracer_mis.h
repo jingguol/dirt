@@ -48,7 +48,7 @@ public:
     {
         HitInfo hit;
         if (!scene.intersect(ray, hit))
-            return scene.background();
+            return scene.background(ray);
 
         ScatterRecord srec;
         Color3f emitted = emissionWeight * hit.mat->emitted(ray, hit);
