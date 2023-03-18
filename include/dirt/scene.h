@@ -27,6 +27,7 @@
 #include <dirt/surfacegroup.h>
 #include <dirt/texture.h>
 #include <dirt/integrator.h>
+#include <dirt/medium.h>
 
 /**
     Main scene data structure.
@@ -74,11 +75,29 @@ public:
      */
     shared_ptr<const Material> findOrCreateMaterial(const json & j, const string & key = "material") const;
 
+    /**
+        Find/create a medium.
+       
+        Return a Medium pointer by parsing the "medium" specification.
+        If \c j is a string "medium": "medium-name", then try to find
+        a medium with name "medium-name" in the pre-declared map of scene
+        media. If \c j is a json object "medium": {}, then create a new
+        medium with the specified parameters.
+     */
+    shared_ptr<const Medium> findOrCreateMedium(const json & j, const string & key) const;
+
+    /**
+        Find/create a medium interface.
+     */
+    shared_ptr<const MediumInterface> findOrCreateMediumInterface(const json & j, const string & key = "medium_interface") const;
+
     /// Return a const reference to the emitters
     const SurfaceBase & emitters() const {return m_emitters;}
 
     /// Return the background color
-    Color3f background() const {return m_background;}
+    Color3f background(const Ray3f & ray) const {
+        return m_background->value(ray);
+    }
 
     /**
         Sample the color along a ray
@@ -97,9 +116,10 @@ public:
 private:
     shared_ptr<Camera> m_camera;
     map<string, shared_ptr<const Material>> m_materials;
+    map<string, shared_ptr<const Medium>> m_media;
     shared_ptr<SurfaceGroup> m_surfaces;
     SurfaceGroup m_emitters {*this};
-    Color3f m_background = Color3f(0.2f);
+    shared_ptr<Background> m_background;
     shared_ptr<Integrator> m_integrator;
     shared_ptr<Sampler> m_sampler;
 

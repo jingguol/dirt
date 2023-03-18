@@ -34,8 +34,11 @@ public:
     bool intersect(const Ray3f &ray, HitInfo &hit) const override;
     bool isEmissive() const override {return m_material && m_material->isEmissive();}
 
+    float pdf(const Vec3f& o, const Vec3f& v) const override;
+    Vec3f sample(const Vec3f& o, const Vec2f &sample) const override;
 
 protected:
     Vec2f m_size = Vec2f(1.f);
     shared_ptr<const Material> m_material;
+    shared_ptr<const MediumInterface> m_medium_interface;
 };

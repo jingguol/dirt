@@ -34,6 +34,7 @@ Quad::Quad(const Scene & scene, const json & j)
 	m_size /= 2.f;
     
     m_material = scene.findOrCreateMaterial(j);
+    m_medium_interface = scene.findOrCreateMediumInterface(j);
 }
 
 bool Quad::intersect(const Ray3f &ray, HitInfo &hit) const
@@ -62,7 +63,7 @@ bool Quad::intersect(const Ray3f &ray, HitInfo &hit) const
     Vec2f uv = Vec2f(p.x / (2 * m_size.x) + 0.5f, p.y / (2 * m_size.y) + 0.5f);
 
     // if hit, set intersection record values
-    hit = HitInfo(t, m_xform.point(p), gn, gn, uv, m_material.get(), this);
+    hit = HitInfo(t, m_xform.point(p), gn, gn, uv, m_material.get(), m_medium_interface.get(), this);
     return true;
 }
 
@@ -71,3 +72,24 @@ Box3f Quad::localBBox() const
 {
     return Box3f(-Vec3f(m_size.x,m_size.y,0) - Vec3f(1e-4f), Vec3f(m_size.x,m_size.y,0) + Vec3f(1e-4f));
 }
+
+float Quad::pdf(const Vec3f& o, const Vec3f& v) const
+{
+    HitInfo rec;
+    if (this->intersect(Ray3f(o, v), rec))
+    {
+        float area = 4 * length(cross(m_xform.vector({m_size.x, 0, 0}), m_xform.vector({0, m_size.y, 0})));
+        float distance_squared = rec.t * rec.t * length2(v);
+        float cosine = std::abs(dot(v, rec.gn) / length(v));
+        return distance_squared / (cosine * area);
+    }
+    else
+        return 0;
+}
+
+Vec3f Quad::sample(const Vec3f& o, const Vec2f &sample) const
+{
+    Vec3f p {(2 * sample.x - 1) * m_size.x, (2 * sample.y - 1) * m_size.y, 0};
+    return m_xform.point(p) - o;
+}
+

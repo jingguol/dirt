@@ -40,7 +40,7 @@ public:
         {
             if (!scene.intersect(ray, hit))
             {
-                result += throughput * scene.background();
+                result += throughput * scene.background(ray);
                 break;
             }
 

@@ -21,17 +21,6 @@
 
 #include <dirt/transform.h>
 
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4706)
-#endif
-#include <json.hh>
-#if defined(_MSC_VER)
-#pragma warning(pop) 
-#endif
-
-using json = nlohmann::json;
-
 /**
    Parse a Surface from the json object \ref j and add it as a child
    to \ref parent by calling parent->addChild().
@@ -49,6 +38,22 @@ void parseSurface(const Scene & scene, SurfaceBase * parent, const json & j);
    \return Material*    The resulting Material
  */
 shared_ptr<Material> parseMaterial(const json & j);
+
+/**
+   Return a newly constructed Medium by parsing the json object \ref j.
+   
+   \param  j            The json object to parse
+   \return Medium*    The resulting Medium
+ */
+shared_ptr<Medium> parseMedium(const json & j);
+
+/**
+   Return a newly constructed Phase function by parsing the json object \ref j.
+   
+   \param  j            The json object to parse
+   \return PhaseFunction*    The resulting phase function
+ */
+shared_ptr<PhaseFunction> parsePhase(const json &j);
 
 /**
    Return a newly constructed Texture by parsing the json object \ref j.

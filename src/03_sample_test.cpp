@@ -82,7 +82,7 @@ Image3f generateHeatmap(const Array2d<float> &density, float maxValue)
         for (int x = 0; x < density.width(); ++x)
             result(x, y) = colorRamp(density(x, y)/maxValue);
 
-    return result;
+    return std::move(result);
 }
 
 Vec3f SampleTester::uvToSpherical(Vec2f uv) const

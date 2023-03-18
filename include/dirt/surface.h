@@ -20,6 +20,7 @@
 
 #include <dirt/fwd.h>
 #include <dirt/material.h>
+#include <dirt/medium.h>
 #include <dirt/transform.h>
 #include <dirt/parser.h>
 
@@ -39,6 +40,7 @@ struct HitInfo
 	Vec3f sn;                               ///< Interpolated shading normal
 	Vec2f uv;                               ///< UV texture coordinates
 	const Material * mat = nullptr;         ///< Material at the hit point
+    const MediumInterface *mi = nullptr; ///< Medium interface at the hit point
 	const SurfaceBase * surface = nullptr;  ///< Surface at the hit point
 
 	/// Default constructor that leaves all members uninitialized
@@ -51,8 +53,9 @@ struct HitInfo
             const Vec3f &sn,
             const Vec2f &uv,
             const Material * m = nullptr,
+            const MediumInterface *mi = nullptr,
             const SurfaceBase * s = nullptr) :
-		t(t), p(p), gn(gn), sn(sn), uv(uv), mat(m), surface(s)
+		t(t), p(p), gn(gn), sn(sn), uv(uv), mat(m), mi(mi), surface(s)
 	{
 
 	}

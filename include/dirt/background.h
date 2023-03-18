@@ -8,8 +8,8 @@
 class Background
 {
 public:
-	/// Return a pointer to a global default background
-	static shared_ptr<Background> defaultBackground();
+    /// Return a pointer to a global default background
+    static shared_ptr<Background> defaultBackground();
 
     virtual ~Background() = default;
 

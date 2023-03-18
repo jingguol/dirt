@@ -18,6 +18,8 @@
 
 #include <dirt/sphere.h>
 #include <dirt/scene.h>
+#include <dirt/onb.h>
+#include <dirt/pdf.h>
 
 Vec2f getSphereUV(const Vec3f& p)
 {
@@ -41,6 +43,7 @@ Sphere::Sphere(const Scene & scene, const json & j)
 {
 	m_radius = j.value("radius", m_radius);
     m_material = scene.findOrCreateMaterial(j);
+    m_medium_interface = scene.findOrCreateMediumInterface(j);
 }
 
 Box3f Sphere::localBBox() const
@@ -86,7 +89,36 @@ bool Sphere::intersect(const Ray3f &ray, HitInfo &hit) const
     Vec2f uv = getSphereUV(p/m_radius);
 
     // if hit, set intersection record values
-    hit = HitInfo(t, m_xform.point(p), gn, gn, uv, m_material.get(), this);
+    hit = HitInfo(t, m_xform.point(p), gn, gn, uv, m_material.get(), m_medium_interface.get(), this);
 
     return true;
+}
+
+float Sphere::pdf(const Vec3f& o, const Vec3f& v) const
+{
+    HitInfo hit;
+    if (this->intersect(Ray3f(o, v), hit))
+    {
+        Vec3f center = m_xform.point(Vec3f(0));
+        float radius2 = length2(m_xform.point(Vec3f(0,0,m_radius)) - center);
+        float cos_theta_max = sqrt(1 - radius2/length2(center-o));
+        float solid_angle = 2*M_PI*(1-cos_theta_max);
+        return  1 / solid_angle;
+    }
+    else
+        return 0.000001f;
+}
+
+Vec3f Sphere::sample(const Vec3f& o, const Vec2f &sample) const
+{
+    Vec3f center = m_xform.point(Vec3f(0));
+    float radius = length(m_xform.point(Vec3f(0,0,m_radius)) - center);
+    Vec3f direction = center-o;
+    float distance_squared = length2(direction);
+    ONBf onb;
+    onb.build_from_w(direction);
+    Vec3f ret = onb.toWorld(random_to_sphere(sample, radius, distance_squared));
+    if (pdf(o, ret) == 0)
+        cout << "sample: " << ret << "; " << pdf(o, ret) << endl;
+    return ret;
 }

@@ -60,3 +60,18 @@ bool SurfaceGroup::intersect(const Ray3f &_ray, HitInfo &hit) const
     // record closest intersection
     return hitSomething;
 }
+
+float SurfaceGroup::pdf(const Vec3f& o, const Vec3f& v) const
+{
+    float weight = 1.0f / m_surfaces.size();
+    float sum = 0.f;
+    for (auto surface : m_surfaces)
+        sum += weight * surface->pdf(o, v);
+    return sum;
+}
+
+Vec3f SurfaceGroup::sample(const Vec3f& o, const Vec2f &sample) const
+{
+    int index = int(randf() * m_surfaces.size());
+    return m_surfaces[index]->sample(o, sample);
+}

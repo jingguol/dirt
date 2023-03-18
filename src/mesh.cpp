@@ -29,6 +29,7 @@ bool singleTriangleIntersect(const Ray3f& ray,
                              const Vec2f* t0, const Vec2f* t1, const Vec2f* t2,
 	                         HitInfo& hit,
 	                         const Material * material,
+                             const MediumInterface *medium_interface,
 	                         const SurfaceBase * surface)
 {
    // Find vectors for two edges sharing v[0]
@@ -89,7 +90,7 @@ bool singleTriangleIntersect(const Ray3f& ray,
     Vec3f p = bary.x * p0 + bary.y * p1 + bary.z * p2;
 
     // if hit, set intersection record values
-    hit = HitInfo(t, p, gn, sn, uv, material, surface);
+    hit = HitInfo(t, p, gn, sn, uv, material, medium_interface, surface);
     return true; 
 }
 
@@ -128,7 +129,10 @@ bool Triangle::intersect(const Ray3f &ray, HitInfo &hit) const
                                    p0, p1, p2,
                                    n0, n1, n2,
                                    t0, t1, t2,
-                                   hit, m_mesh->material.get(), this);
+                                   hit,
+                                   m_mesh->material.get(), 
+                                   m_mesh->medium_interface.get(),
+                                   this);
 }
 
 Box3f Triangle::localBBox() const
@@ -173,4 +177,39 @@ Box3f Triangle::worldBBox() const
         }
     }
     return result;
+}
+
+Vec3f Triangle::sample(const Vec3f &o, const Vec2f &sample) const
+{
+    // get triangle vertices
+    Vec3f p0 = m_mesh->m_xform.point(vertex(0));
+    Vec3f p1 = m_mesh->m_xform.point(vertex(1));
+    Vec3f p2 = m_mesh->m_xform.point(vertex(2));
+
+    // compute baycentric coordinates
+    float u = std::sqrt(sample.x);
+    float b0 = 1.0f - u;
+    float b1 = sample.y * u;
+
+    // calculate point based on barycentric coordinates
+    Vec3f p = b0 * p0 + b1 * p1 + (1.0f - b0 - b1) * p2;
+    return normalize(p - o);
+}
+
+float Triangle::pdf(const Vec3f &o, const Vec3f &dir) const
+{
+    // check that ray intersects triangle
+    Ray3f r(o, dir);
+    HitInfo hit;
+    if (!intersect(r, hit)) return 0.0f;
+
+    // get triangle vertices
+    Vec3f p0 = m_mesh->m_xform.point(vertex(0));
+    Vec3f p1 = m_mesh->m_xform.point(vertex(1));
+    Vec3f p2 = m_mesh->m_xform.point(vertex(2));   
+
+    // compute the pdf
+    float areaPdf = 2.0f / length(cross((p1 - p0), (p2 - p0)));
+    float geometryTerm = length2(hit.p - o) / abs(dot(dir, hit.gn));
+    return areaPdf * geometryTerm;
 }

@@ -23,17 +23,9 @@
 #include <dirt/surface.h>
 #include <dirt/onb.h>
 
-namespace
-{
-
-auto g_defaultMaterial = make_shared<Lambertian>(json{{"albedo", 0.8}});
-
-} // namespace
-
-
 shared_ptr<const Material> Material::defaultMaterial()
 {
-	return g_defaultMaterial;
+	return nullptr;
 }
 
 
