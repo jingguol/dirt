@@ -98,8 +98,13 @@ public:
             }
 
             float lum = luminance(throughput);
-            const float rrThreshold = .1;
-	    // TODO: Part 1
+            const float rrThreshold = 1.0f;
+            if (lum < rrThreshold)
+            {
+                float q = std::max((float).05, 1.0f - lum);
+                if (sampler.next1D() < q) break;
+                throughput /= (1 - q);
+            }
         }
 
         return result;
