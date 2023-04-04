@@ -11,17 +11,35 @@ HenyeyGreenstein::HenyeyGreenstein(const json &j)
 }
 
 // HenyeyGreenstein Method Definitions
-
 float HenyeyGreenstein::p(const Vec3f &wo, const Vec3f &wi) const
 {
-	// TODO Part 2, Task 1
+  float cosTheta = dot(normalize(wo), normalize(wi));
+  float denom = 1.0 + g * g + 2.0 * g * cosTheta;
+  return INV_FOURPI * (1.0 - g * g) / (denom * std::sqrt(denom));
 }
 
 float HenyeyGreenstein::sample(const Vec3f &wo, Vec3f &wi, const Vec2f &u) const
 {
-	// TODO Part 2, Task 2
-}
+  float cosTheta;
+  if (std::abs(g) < 1e-3)
+  {
+    cosTheta = 1.0 - 2.0 * u.x;
+  }
+  else
+  {
+    float sqrTerm = (1.0 - g * g) / (1.0 + g - 2.0 * g * u.x);
+    cosTheta = -(1.0 + g * g - sqrTerm * sqrTerm) / (2.0 * g);
+  }
 
+  // Compute direction _wi_ for Henyey--Greenstein sample
+  float sinTheta = std::sqrt(std::max(0.0f, 1.0f - cosTheta * cosTheta));
+  float phi = 2 * M_PI * u.y;
+
+  ONB<float> onb;
+  onb.build_from_w(wo);
+  wi = normalize(onb.toWorld(SphericalDirection(sinTheta, cosTheta, phi)));
+  return p(wo, wi);
+}
 
 HomogeneousMedium::HomogeneousMedium(const json &j)
 {
@@ -34,15 +52,18 @@ HomogeneousMedium::HomogeneousMedium(const json &j)
 float HomogeneousMedium::Tr(const Ray3f &ray_, Sampler &sampler) const
 {
   Ray3f ray = ray_.normalizeRay();
-  // TODO Part 3, Task 1
-  return 0;
+  return std::exp(-sigma_t * (ray.maxt - ray.mint));
 }
 
 float HomogeneousMedium::Sample(const Ray3f &ray_, Sampler &sampler, MediumInteraction &mi) const
 {
   Ray3f ray = ray_.normalizeRay();
-  // TODO Part 3, Task 2
-  return 0;
+  float dist = -std::log(1.0f - sampler.next1D()) / sigma_t;
+  float t = std::min(dist, ray.maxt);
+  bool sampledMedium = t < ray.maxt;
+  if (sampledMedium)
+    mi = MediumInteraction(ray(t), -ray.d, this);
+  return sampledMedium ? sigma_s / sigma_t : 1.0f;
 }
 
 float HomogeneousMedium::density(const Vec3f &p) const
@@ -69,15 +90,32 @@ PerlinMedium::PerlinMedium(const json &j)
 float PerlinMedium::Tr(const Ray3f &ray_, Sampler &sampler) const
 {
   Ray3f ray = ray_.normalizeRay();
-  // TODO Part 5
-  return 0;
+  float Tr = 1;
+  float t = ray.mint;
+  while (true) {
+    t -= std::log(1.0 - sampler.next1D()) * invMaxDensity;
+    if (t * invMaxDensity >= ray.maxt) break;
+    Tr *= 1.0 - std::max((float)0,  density(ray(t)) * invMaxDensity);
+  }
+
+  return Tr;
 }
 
 float PerlinMedium::Sample(const Ray3f &ray_, Sampler &sampler, MediumInteraction &mi) const
 {
   Ray3f ray = ray_.normalizeRay();
-  // TODO Part 4
-  return 0;
+  float t = ray.mint;
+  while (true)
+  {
+    t -= std::log(1.0 - sampler.next1D()) * invMaxDensity;
+    if (ray.maxt <= t) break;
+    if (sampler.next1D() < density(ray(t)) * invMaxDensity)
+    {
+      mi = MediumInteraction(ray(t), -ray.d, this);
+      return sigma_s / sigma_t;
+    }
+  }
+  return 1.0f;
 }
 
 float PerlinMedium::density(const Vec3f &p) const
