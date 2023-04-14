@@ -92,10 +92,14 @@ float PerlinMedium::Tr(const Ray3f &ray_, Sampler &sampler) const
   Ray3f ray = ray_.normalizeRay();
   float Tr = 1;
   float t = ray.mint;
+  int i = 0;
   while (true) {
     t -= std::log(1.0 - sampler.next1D()) * invMaxDensity;
     if (t * invMaxDensity >= ray.maxt) break;
     Tr *= 1.0 - std::max((float)0,  density(ray(t)) * invMaxDensity);
+    if (Tr < Epsilon) break; // Guard against infinite looping. Should we set Tr = 0?
+    i++;
+    if (i % 1000000 == 0) warning("[PerlinMedium::Tr] %d-th iteration. Tr = %f\n", i, Tr);
   }
 
   return Tr;
@@ -105,6 +109,7 @@ float PerlinMedium::Sample(const Ray3f &ray_, Sampler &sampler, MediumInteractio
 {
   Ray3f ray = ray_.normalizeRay();
   float t = ray.mint;
+  int i = 0;
   while (true)
   {
     t -= std::log(1.0 - sampler.next1D()) * invMaxDensity;
@@ -114,6 +119,8 @@ float PerlinMedium::Sample(const Ray3f &ray_, Sampler &sampler, MediumInteractio
       mi = MediumInteraction(ray(t), -ray.d, this);
       return sigma_s / sigma_t;
     }
+    i++;
+    if (i % 1000000 == 0) warning("[PerlinMedium::Sample] %d-th iteration. t = %f\n", i, t);
   }
   return 1.0f;
 }
@@ -136,19 +143,36 @@ Color3f TrL(const Scene &scene, Sampler &sampler, const Ray3f &ray_)
 {
   Ray3f ray = ray_.normalizeRay();
   float Tr = 1.0;
+
+  // Advance through the ray in a straight line, one intersection at a time.
   while (true)
   {
+    /** Loop invariants at this point:
+     *  * ray.maxt = infinity
+     *  * ray.medium is the medium that the ray is just about to travel on.
+     *      (The neighborhood of ray.o at direction ray.d.
+     *      NOT the intersection between the ray and the scene.)
+     *  * Tr = transmittance between the initial ray origin (ray_.o) and the current ray origin (ray.o).
+     */
+
+    /* Part 1: Advance Tr to next intersection */
+  
     HitInfo hit;
     bool hitSurface = scene.intersect(ray, hit);
 
     if (hitSurface) ray.maxt = length(hit.p - ray.o) + 2.0 * Epsilon;
 
+    // Travel to intersection (or to infinity): multiply by medium transmittance
+    if (ray.medium) Tr *= ray.medium->Tr(ray, sampler);
+
+    // At this point, even though the Tr value has advanced to the next
+    // intersection, ray.o has not. It will do so in Part 3.
+
+    /* Part 2: Terminate ray on certain events */
+
     // hit an emitter
     if (hitSurface && hit.mat != nullptr)
       return hit.mat->isEmissive() ? Tr * hit.mat->emitted(ray, hit) : Color3f(0.0f);
-
-    // stil in medium
-    if (ray.medium) Tr *= ray.medium->Tr(ray, sampler);
 
     // if transmittance below threshold exit
     if (Tr < Epsilon) break;
@@ -157,12 +181,17 @@ Color3f TrL(const Scene &scene, Sampler &sampler, const Ray3f &ray_)
     if (!hitSurface)
       return Tr * scene.background(ray);
 
-    // set medium based on whether we are entering or exiting the surface
+    /* Part 3: Prepare for next iteration */
+
+    // set next medium based on whether we are entering or exiting the surface
     if (hit.mi->IsMediumTransition())
       ray.medium = hit.mi->getMedium(ray, hit);
 
-    // update ray origin
-    ray.o = hit.p;
+    // update ray origin to start at the intersection point
+    ray.o = ray(hit.t + Epsilon); // Epsilon for extra safety against infinite loops of intersecting the same point.
+                                  // Probably unnecessary, especially if ray.mint is already an Epsilon.
+    // reset ray max to infinity
+    ray.maxt = std::numeric_limits<float>::infinity();
   }
 
   return Color3f(0.0f);
