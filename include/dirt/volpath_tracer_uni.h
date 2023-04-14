@@ -26,10 +26,13 @@ public:
         m_maxBounces = j.value("max_bounces", m_maxBounces);
     }
 
-    void attachMedium(const HitInfo &hit, Ray3f &ray) const
+    /** Set a ray's maxt to a given hit point. (Plus epsilon! The hit point still intersects the ray)
+     * 
+     * This assumes that the ray actually points at the hit point.
+     * Otherwise, the calculated maxt is incorrect.
+    */
+    inline void setRayMaxt(const HitInfo &hit, Ray3f &ray) const
     {
-        if (hit.mat == nullptr && hit.mi->IsMediumTransition())
-            ray.medium = hit.mi->getMedium(ray, hit);
         ray.maxt = length(hit.p - ray.o) / length(ray.d) + Epsilon;
     }
 
@@ -44,7 +47,7 @@ public:
         {
             HitInfo hit;
             bool foundIntersection = scene.intersect(ray, hit);
-            if (foundIntersection) attachMedium(hit, ray);
+            if (foundIntersection) setRayMaxt(hit, ray);
 
             MediumInteraction mi;
             if (ray.medium)
@@ -71,7 +74,12 @@ public:
 
                 if (hit.mat == nullptr)
                 {
-                    ray = Ray3f(hit.p, normalize(ray.d));
+                    ray = Ray3f(hit.p, normalize(ray.d)).withMedium(ray.medium);
+
+                    // set next medium if this is a transition
+                    if (hit.mi->IsMediumTransition())
+                        ray.medium = hit.mi->getMedium(ray, hit);
+    
                     continue;
                 }
 

@@ -69,7 +69,7 @@ struct Ray
         float normalizedMint = mint * rayLength;
         float normalizedMaxt = maxt * rayLength;
 
-        return Ray(o, normalizedRayDir, normalizedMint, normalizedMaxt);
+        return Ray(o, normalizedRayDir, normalizedMint, normalizedMaxt).withMedium(medium);
     }
 
     Ray<N, T> withMedium(std::shared_ptr<const Medium> medium)
