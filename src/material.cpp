@@ -22,6 +22,8 @@
 #include <dirt/scene.h>
 #include <dirt/surface.h>
 #include <dirt/onb.h>
+#include <dirt/sampler.h>
+#include <iostream>
 
 const int M_E = 2.71828182846;
 
@@ -294,7 +296,6 @@ float BlendMaterial::pdf(const Vec3f & dirIn, const Vec3f & scattered, const Hit
                 b->pdf(dirIn, scattered, hit), t);
 }
 
-
 Phong::Phong(const json & j)
 {
 	albedo = parseTexture(j.at("albedo"));
@@ -376,7 +377,6 @@ float BlinnPhong::pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInf
   return normalPdf/(4.0f*dot(-dirIn, normal));
 }
 
-
 Beckmann::Beckmann(const json & j)
 {
 	albedo = parseTexture(j.at("albedo"));
@@ -406,7 +406,6 @@ bool Beckmann::sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &samp
 	srec.attenuation = albedo->value(hit);
 	return dot(hit.sn, srec.scattered) > 0;
 }
-
 
 Color3f Beckmann::eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const 
 {
@@ -454,7 +453,6 @@ float Beckmann::G1(Vec3f v1, Vec3f v2, const HitInfo & hit) const
 		return 1.0f;
 	}
 }
-
 
 OrenNayar::OrenNayar(const json & j)
 {
@@ -506,4 +504,107 @@ Color3f OrenNayar::eval(const Vec3f & dirIn, const Vec3f & scattered, const HitI
 float OrenNayar::pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const
 {
    return max(0.0f, dot(scattered, hit.sn) / M_PI);
+}
+
+Layered::Layered(const json & j) {
+	top = parseMaterial(j.at("top"));
+	bottom = parseMaterial(j.at("bottom"));
+	medium = parseMedium(j.at("medium"));
+}
+
+bool Layered::scatter(const Ray3f &ray, const HitInfo &hit, const Vec2f &sample, Color3f &attenuation, Ray3f &scattered) const {
+	return false;
+}
+
+bool Layered::sample(const Vec3f & dirIn, const HitInfo &hit, const Vec2f &sample, ScatterRecord &srec) const {
+	const int maxBounce = 32;
+	int bounce = 0;
+	shared_ptr<Sampler> sampler = std::make_shared<IndependentSampler>(json::object());
+	Vec3f currDir = dirIn;
+	Vec3f normal = hit.gn;
+	int currMat = (dot(dirIn, normal) > 0) ? -1 : 1;		// 1 is top, 0 is medium, -1 is bottom
+	float z = (currMat == 1) ? 1.0f : 0.0f;
+	srec.attenuation = Color3f(1.0f);
+	srec.isSpecular = false;
+	while (bounce < maxBounce) {
+		if (currMat == 1) {
+			HitInfo hi_tmp = hit;
+			ScatterRecord sr_tmp;
+			bool b = top->sample(currDir, hi_tmp, sampler->next2D(), sr_tmp);
+			if (!b) {
+				return false;
+			}
+			if (dot(sr_tmp.scattered, normal) > 0.0f) {		// exit slab from top
+				srec.attenuation *= sr_tmp.attenuation;
+				// srec.attenuation *= (sr_tmp.attenuation / top->pdf(currDir, sr_tmp.scattered, hi_tmp));
+				srec.scattered = sr_tmp.scattered;
+				break;
+			} else {
+				srec.attenuation *= sr_tmp.attenuation;
+				// srec.attenuation *= (sr_tmp.attenuation / top->pdf(currDir, sr_tmp.scattered, hi_tmp));
+				currDir = sr_tmp.scattered;
+				currMat = 0;
+				z = 1.0f;
+			}
+			bounce++;
+		} else if (currMat == -1) {
+			HitInfo hi_tmp = hit;
+			ScatterRecord sr_tmp;
+			bool b = bottom->sample(currDir, hi_tmp, sampler->next2D(), sr_tmp);
+			if (!b) {
+				return false;
+			}
+			if (dot(sr_tmp.scattered, normal) < 0.0f) {		// exit slab from bottom
+				srec.attenuation *= sr_tmp.attenuation;
+				// srec.attenuation *= (sr_tmp.attenuation / bottom->pdf(currDir, sr_tmp.scattered, hi_tmp));
+				srec.scattered = sr_tmp.scattered;
+				break;
+			} else {
+				srec.attenuation *= sr_tmp.attenuation;
+				// srec.attenuation *= (sr_tmp.attenuation / bottom->pdf(currDir, sr_tmp.scattered, hi_tmp));
+				currDir = sr_tmp.scattered;
+				currMat = 0;
+				z = 0.0f;
+			}
+			bounce++;
+		} else {
+			float maxT = (dot(currDir, normal) > 0.0f) ? (1.0f - z) / dot(currDir, normal) : z / -dot(currDir, normal);
+			Ray3f ray(Vec3f(0.0f), currDir);
+			ray.maxt = maxT;
+			ray.withMedium(medium);
+			Color3f throughput(1.f);
+
+			MediumInteraction mi;
+			throughput *= ray.medium->Sample(ray, *sampler, mi);
+
+			if (mi.isValid())
+			{
+				Vec3f wi;
+				float phasePdf = mi.medium->phase->sample(mi.wo, wi, sampler->next2D());
+				throughput *= mi.medium->phase->p(mi.wo, wi) / phasePdf;
+				float deltaT = mi.p.z / currDir.z;
+				z = z + deltaT * dot(currDir, normal);
+				srec.attenuation *= throughput;
+				currDir = wi;
+			} else {
+				z = (dot(currDir, normal) > 0.0f) ? 1.0f : 0.0f;
+				currMat = (dot(currDir, normal) > 0.0f) ? 1 : -1;
+				srec.attenuation *= throughput;
+			}
+			bounce++;
+		}
+	}
+	srec.scattered = currDir;
+	// if (randf() < 1e-5) {
+	// 	std::cout << bounce << " " << srec.attenuation << "\n";
+	// }
+	return bounce < maxBounce;
+}
+
+Color3f Layered::eval(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo &hit) const {
+	return Color3f(0.0f);
+}
+
+float Layered::pdf(const Vec3f & dirIn, const Vec3f & scattered, const HitInfo & hit) const {
+	return 1.0f;
 }

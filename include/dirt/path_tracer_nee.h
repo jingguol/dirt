@@ -44,7 +44,7 @@ public:
             return emitted;
 
         // 2. compute direct illumination by sampling the lights
-	Vec2f sample = sampler.next2D();
+	    Vec2f sample = sampler.next2D();
         Vec3f lightDir = normalize(scene.emitters().sample(hit.p, sample));
         Ray3f lightRay(hit.p, lightDir);
         float lightPdf = scene.emitters().pdf(hit.p, lightRay.d);
@@ -54,7 +54,7 @@ public:
             direct = bsdf * recursiveColor(scene, sampler, lightRay, 0, true) / lightPdf;
 
         // 3. now, get indirect illumination by sampling the BSDF
-	sample = sampler.next2D();
+	    sample = sampler.next2D();
         if (!hit.mat->sample(ray.d, hit, sample, srec))
             return emitted + direct;
 

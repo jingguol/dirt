@@ -52,12 +52,18 @@ public:
         if (srec.isSpecular)
             return emitted + srec.attenuation * recursiveColor(scene, sampler, bsdfRay, moreBounces-1);
 
-        float bsdfPdf = hit.mat->pdf(ray.d, bsdfRay.d, hit);
-        if (bsdfPdf == 0.0f)
-            return emitted;
-        Color3f bsdf = hit.mat->eval(ray.d, bsdfRay.d, hit);
 
-        return emitted + bsdf * recursiveColor(scene, sampler, bsdfRay, moreBounces-1) / bsdfPdf;
+        if (dynamic_cast<Layered*>(const_cast<Material*>(hit.mat)) == nullptr) {
+            float bsdfPdf = hit.mat->pdf(ray.d, bsdfRay.d, hit);
+            if (bsdfPdf == 0.0f)
+                return emitted;
+            Color3f bsdf = hit.mat->eval(ray.d, bsdfRay.d, hit);
+
+            return emitted + bsdf * recursiveColor(scene, sampler, bsdfRay, moreBounces-1) / bsdfPdf;
+        } else {
+            float bsdfOverPdf = luminance(srec.attenuation);
+            return emitted + bsdfOverPdf * recursiveColor(scene, sampler, bsdfRay, moreBounces-1);
+        }
     }
 
     virtual Color3f Li(const Scene & scene, Sampler &sampler, const Ray3f& ray_) const override
