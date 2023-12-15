@@ -23,6 +23,14 @@
 #include <dirt/parser.h>
 #include <dirt/sampling.h>
 #include <dirt/medium.h>
+#include <PolynomialOptics/TruncPolySystem.hh>
+#include <PolynomialOptics/TwoPlane5.hh>
+#include <PolynomialOptics/Propagation5.hh>
+#include <PolynomialOptics/Spherical5.hh>
+#include <PolynomialOptics/Cylindrical5.hh>
+#include <PolynomialOptics/OpticalMaterial.hh>
+#include <fstream>
+#include <iostream>
 
 /**
     This class represents a virtual pinhole camera.
@@ -49,6 +57,44 @@ public:
         if (j.contains("medium"))
         {
             m_medium = parseMedium(j.at("medium"));
+        }
+        if (j.contains("lens")) {
+            json jLens = j.at("lens");
+            m_useLens = true;
+            int degree = jLens.value("degree", 3);
+            const float lambda = 550;
+            float radius = jLens.value("radius", 25.0);
+            float distance = jLens.value("distance", radius);
+            string material = jLens.value("material", "S-LAL7");
+            OpticalMaterial glass1(material.c_str());
+            string type = jLens.at("type").get<string>();
+            if (type == "spherical_concave") {
+                m_lens = propagate_5(distance, degree) >> 
+                    refract_spherical_5(-radius, 1.0, glass1.get_index(lambda), degree) >>
+                    propagate_5(radius, degree) >>
+                    refract_spherical_5(radius, glass1.get_index(lambda), 1.0, degree);
+                m_lensLength = distance + radius;
+            } else if (type == "spherical_convex") {
+                m_lens = propagate_5(distance, degree) >> 
+                    refract_spherical_5(radius, 1.0, glass1.get_index(lambda), degree) >>
+                    propagate_5(radius, degree) >>
+                    refract_spherical_5(-radius, glass1.get_index(lambda), 1.0, degree);
+                m_lensLength = distance + radius;
+            } else if (type == "cylindrical_x") {
+                m_lens = propagate_5(distance, degree) >> 
+                    refract_cylindrical_x_5(-radius, 1.0, glass1.get_index(lambda), degree) >>
+                    propagate_5(radius * 2, degree) >>
+                    refract_cylindrical_x_5(radius, glass1.get_index(lambda), 1.0, degree);
+                m_lensLength = distance + 2 * radius;
+            } else if (type == "cylindrical_y") {
+                m_lens = propagate_5(distance, degree) >> 
+                    refract_cylindrical_y_5(-radius, 1.0, glass1.get_index(lambda), degree) >>
+                    propagate_5(radius * 2, degree) >>
+                    refract_cylindrical_y_5(radius, glass1.get_index(lambda), 1.0, degree);
+                m_lensLength = distance + 2 * radius;
+            } else {
+                throw DirtException("Unknown 'lens' type '%s' here:\n%s.", type, j.dump(4));
+            }
         }
 
 		float vfov = 90.f; // Default vfov value. Override this with the value from json
@@ -83,14 +129,27 @@ public:
 
 		Vec2f disk = m_apertureRadius*randomInUnitDisk();
 		Vec3f origin(disk.x, disk.y, 0.f);
-        return m_xform.ray(
-            Ray3f(origin,
-        	Vec3f(
-                (u - 0.5f) * m_size.x,
-        	    (0.5f - v) * m_size.y,
-        	    -m_focalDistance) - origin
-            )
-        ).withMedium(m_medium);
+        Vec3f dir(Vec3f((u - 0.5f) * m_size.x, (0.5f - v) * m_size.y, -m_focalDistance) - origin);
+        dir = normalize(dir);
+        Ray3f ray(origin, dir);
+
+        if (m_useLens) {
+            float lensInput[4] = {origin[0], origin[1], dir[0], dir[1]};
+            float lensOutput[4];
+            Transform4f lens = m_lens;
+            lens.evaluate(lensInput, lensOutput, false);
+            Vec3f newDir = Vec3f(lensOutput[2], lensOutput[3], -sqrtf(1 - lensOutput[2] * lensOutput[2] - lensOutput[3] * lensOutput[3]));
+            Vec3f newOrigin = Vec3f(lensOutput[0], lensOutput[1], m_lensLength);
+            Ray3f newRay = Ray3f(newOrigin, newDir);
+
+            // if (randf() < 1e-5) {
+            //     std::cout << origin << '\n' << newOrigin << '\n';
+            //     std::cout << dir << '\n' << newDir << "\n\n";
+            // }
+            return m_xform.ray(newRay).withMedium(m_medium);
+        } else {
+            return m_xform.ray(ray).withMedium(m_medium);
+        }  
     }
 
 private:
@@ -119,4 +178,121 @@ private:
 	Vec2i m_resolution = Vec2i(512,512);  ///< Image resolution
 	float m_apertureRadius = 0.f;         ///< The size of the aperture for depth of field
     std::shared_ptr<const Medium> m_medium;
+
+    bool m_useLens = false;
+    float m_lensLength = 0.0f;
+    Transform4f m_lens;
+    Transform4f get_system_from_file(char *filename, float lambda, int degree, float distance) {
+        std::ifstream infile(filename);
+        std::string line;
+
+        Transform4f system;
+        while (std::getline(infile, line)) {
+            std::istringstream ls(line);
+            std::string op;
+            ls >> op;
+
+            if (op == "two_plane") {
+                system = two_plane_5(distance, degree);
+                //cout << "two_plane" << " " << d << endl;
+            }
+            else if (op == "cylindrical_x") {
+                float radius;
+                std::string glassName1;
+                std::string glassName2;
+                ls >> radius;
+                ls >> glassName1;
+                ls >> glassName2;
+                float n1 = 1.0f;
+                float n2 = 1.0f;
+                if (glassName1[0] >= '0' && glassName1[0] <= '9') {
+                    n1 = atof(glassName1.c_str());
+
+                } else {
+                    OpticalMaterial glass1(glassName1.c_str());
+                    n1 = glass1.get_index(lambda);
+                }
+
+                if (glassName2[0] >= '0' && glassName2[0] <= '9') {
+                    n2 = atof(glassName2.c_str());
+                } else {
+                    OpticalMaterial glass2(glassName2.c_str());
+                    n2 = glass2.get_index(lambda);
+                }
+
+                system = system >> refract_cylindrical_x_5(radius, n1, n2);
+            }
+            else if (op == "cylindrical_y") {
+                float radius;
+                std::string glassName1;
+                std::string glassName2;
+                ls >> radius;
+                ls >> glassName1;
+                ls >> glassName2;
+                float n1 = 1.0f;
+                float n2 = 1.0f;
+                if (glassName1[0] >= '0' && glassName1[0] <= '9') {
+                    n1 = atof(glassName1.c_str());
+
+                } else {
+                    OpticalMaterial glass1(glassName1.c_str());
+                    n1 = glass1.get_index(lambda);
+                }
+
+                if (glassName2[0] >= '0' && glassName2[0] <= '9') {
+                    n2 = atof(glassName2.c_str());
+                } else {
+                    OpticalMaterial glass2(glassName2.c_str());
+                    n2 = glass2.get_index(lambda);
+                }
+
+                system = system >> refract_cylindrical_y_5(radius, n1, n2);
+            }
+            else if (op == "reflect_spherical") {
+                float radius;
+                ls >> radius;
+                system = system >> reflect_spherical_5(radius, degree);
+            }
+            else if (op == "refract_spherical") {
+                    float radius;
+                    std::string glassName1;
+                    std::string glassName2;
+                    ls >> radius;
+                    ls >> glassName1;
+                    ls >> glassName2;
+
+                    float n1 = 1.0f;
+                    float n2 = 1.0f;
+
+                    if (glassName1[0] >= '0' && glassName1[0] <= '9') {
+                        n1 = atof(glassName1.c_str());
+
+                    } else {
+                        OpticalMaterial glass1(glassName1.c_str());
+                        n1 = glass1.get_index(lambda);
+                    }
+
+                    if (glassName2[0] >= '0' && glassName2[0] <= '9') {
+                        n2 = atof(glassName2.c_str());
+                    } else {
+                        OpticalMaterial glass2(glassName2.c_str());
+                        n2 = glass2.get_index(lambda);
+                    }
+
+                    system = system >> refract_spherical_5(radius, n1, n2, degree);
+                    //system = system >> refract_cylindrical_x_5(radius, n1, n2, degree);
+                    //cout << "refract_spherical" << " " << radius << " " << n1 << " " << n2 << endl;
+
+            } else if (op == "propagate") {
+                float d;
+                ls >> d;
+                system = system >> propagate_5(d, degree);
+                //cout << "propagate" << " " << d << endl;
+
+            } else {
+                cout << "invalid op: " << op << endl;
+            }
+        }
+        return system;
+    }
 };

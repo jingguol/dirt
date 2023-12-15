@@ -23,6 +23,8 @@
 #include <dirt/surface.h>
 #include <dirt/onb.h>
 
+const int M_E = 2.71828182846;
+
 shared_ptr<const Material> Material::defaultMaterial()
 {
 	return nullptr;

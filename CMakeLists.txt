@@ -54,6 +54,12 @@ set(dirt_headers
     include/dirt/timer.h
     include/dirt/transform.h
     include/dirt/vec.h
+    include/PolynomialOptics/TruncPolySystem.hh
+    include/PolynomialOptics/OpticalMaterial.hh
+    include/PolynomialOptics/Propagation5.hh
+    include/PolynomialOptics/Spherical5.hh
+    include/PolynomialOptics/Cylindrical5.hh
+    include/PolynomialOptics/TwoPlane5.hh
 )
 
 set(dirt_srcs
@@ -78,6 +84,7 @@ set(dirt_srcs
     src/surfacegroup.cpp
     src/testscenes.cpp
     src/texture.cpp
+    src/OpticalMaterial.cpp
 )
 
 # Compile core dirt library
